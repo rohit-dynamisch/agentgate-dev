@@ -16,6 +16,8 @@ Existing project documentation provides the current product and technology basel
 - Technology Stack Plan established.
 - AI-led development model defined at a high level.
 - Initial development documentation structure established.
+- Repository reconnaissance performed and baseline recorded
+  (`docs/DEVELOPMENT/REPOSITORY_BASELINE.md`).
 
 ## Current phase
 
@@ -23,11 +25,20 @@ Existing project documentation provides the current product and technology basel
 
 ## Current task
 
-**TASK-00-01 — Establish the AI-driven engineering and repository operating model**
+**TASK-00-02 — Repository Reconnaissance and Development Baseline**
+
+**Result:** Complete. The repository is documentation-only — one commit, no source code, no
+build/package manifests, no Docker/Compose, no CI configuration. No conflicts were found between
+`PROJECT_DEFINITION.md` and `TECH_STACK.md` requiring correction. Full findings, tooling
+inventory, and the Phase 0 exit assessment are recorded in
+`docs/DEVELOPMENT/REPOSITORY_BASELINE.md`. One gap was identified against Phase 0's own stated
+scope: no CI baseline exists yet — this is flagged for the Lead Architect to sequence (own Phase 0
+item vs. folded into Phase 1's first task), not resolved unilaterally here.
 
 ## Next objective
 
-Create the repository's canonical project-development documents and coding-agent instructions, then inspect the repository baseline before introducing production code.
+Lead Architect to define the Phase 1 task (minimal end-to-end enforcement slice) and decide
+sequencing of the outstanding CI-baseline gap noted in `REPOSITORY_BASELINE.md`.
 
 ## Not yet started
 
