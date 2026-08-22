@@ -18,6 +18,8 @@ Existing project documentation provides the current product and technology basel
 - Initial development documentation structure established.
 - Repository reconnaissance performed and baseline recorded
   (`docs/DEVELOPMENT/REPOSITORY_BASELINE.md`).
+- CI baseline established (`docs/DEVELOPMENT/CI_BASELINE.md`,
+  `.github/workflows/ci.yml`).
 
 ## Current phase
 
@@ -25,20 +27,25 @@ Existing project documentation provides the current product and technology basel
 
 ## Current task
 
-**TASK-00-02 — Repository Reconnaissance and Development Baseline**
+**TASK-00-03 — Establish CI Baseline**
 
-**Result:** Complete. The repository is documentation-only — one commit, no source code, no
-build/package manifests, no Docker/Compose, no CI configuration. No conflicts were found between
-`PROJECT_DEFINITION.md` and `TECH_STACK.md` requiring correction. Full findings, tooling
-inventory, and the Phase 0 exit assessment are recorded in
-`docs/DEVELOPMENT/REPOSITORY_BASELINE.md`. One gap was identified against Phase 0's own stated
-scope: no CI baseline exists yet — this is flagged for the Lead Architect to sequence (own Phase 0
-item vs. folded into Phase 1's first task), not resolved unilaterally here.
+**Result:** Complete. Added a single GitHub Actions workflow
+(`.github/workflows/ci.yml`) that gates all Go validation steps on the presence of `go.mod` — it
+runs gofmt, `go vet`, race-enabled `go test`, `golangci-lint`, and `govulncheck` (all named in
+`docs/TECH_STACK.md`) once the Go module exists in Phase 1, and finishes green with a notice today,
+since there is no Go module or application code yet. No placeholder application code or dummy Go
+module was created to make CI exercise itself, per task scope. Docker builds, SBOM generation,
+signing, deployment, and integration-container jobs were explicitly deferred — see
+`docs/DEVELOPMENT/CI_BASELINE.md` for the full design, deferred-items list, and evolution plan. YAML
+was validated locally (`yaml.safe_load` + `yamllint`, no issues). No conflicts were found in
+`PROJECT_DEFINITION.md` or `TECH_STACK.md` requiring correction. **Phase 0's CI-baseline gap
+(recorded in `docs/DEVELOPMENT/REPOSITORY_BASELINE.md`) is now closed; Phase 0 is complete.**
 
 ## Next objective
 
-Lead Architect to define the Phase 1 task (minimal end-to-end enforcement slice) and decide
-sequencing of the outstanding CI-baseline gap noted in `REPOSITORY_BASELINE.md`.
+Lead Architect to define the Phase 1 task (minimal end-to-end enforcement slice per
+`docs/DEVELOPMENT/MASTER_PLAN.md §4`), including the Go module/repository layout decision noted as
+open in `docs/DEVELOPMENT/REPOSITORY_BASELINE.md`.
 
 ## Not yet started
 
@@ -50,7 +57,8 @@ sequencing of the outstanding CI-baseline gap noted in `REPOSITORY_BASELINE.md`.
 - downstream identity mechanism
 - tool governance
 - policy governance UI
-- production CI/CD
+- production CI/CD hardening (integration tests, fuzzing, SBOM, signing, release automation —
+  baseline validation CI now exists, see `docs/DEVELOPMENT/CI_BASELINE.md`)
 - production deployment configuration
 
 ## Current blockers

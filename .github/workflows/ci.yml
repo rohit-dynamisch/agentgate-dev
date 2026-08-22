@@ -1,0 +1,88 @@
+name: CI
+
+# Single CI workflow for the AgentGate repository.
+#
+# The repository is currently documentation-only (see
+# docs/DEVELOPMENT/REPOSITORY_BASELINE.md) — no go.mod exists yet. This
+# workflow is written so it is useful today (it will not silently pass once
+# Go code exists but is broken) and requires no changes when Phase 1
+# introduces the actual Go module: every validation step below is gated on
+# go.mod being present, and simply activates once it is.
+#
+# See docs/DEVELOPMENT/CI_BASELINE.md for the rationale and what is
+# intentionally deferred to a later phase (Docker builds, SBOM, signing,
+# deployment, integration containers).
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Nothing below assumes a Go module exists. Until docs/TECH_STACK.md's
+      # planned Go module is created (Phase 1), this step reports the
+      # skip and the job still ends green — there is no code to validate yet,
+      # and CI must not fabricate a fake module just to exercise itself.
+      - name: Detect Go module
+        id: gomod
+        shell: bash
+        run: |
+          if [ -f go.mod ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No go.mod present yet. Go validation steps are skipped until Phase 1 introduces the Go module (see docs/DEVELOPMENT/CI_BASELINE.md)."
+          fi
+
+      - name: Set up Go
+        if: steps.gomod.outputs.exists == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Check formatting (gofmt)
+        if: steps.gomod.outputs.exists == 'true'
+        shell: bash
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        if: steps.gomod.outputs.exists == 'true'
+        run: go vet ./...
+
+      - name: go test (race-enabled)
+        if: steps.gomod.outputs.exists == 'true'
+        run: go test -race ./...
+
+      - name: golangci-lint
+        if: steps.gomod.outputs.exists == 'true'
+        uses: golangci/golangci-lint-action@v6
+        with:
+          args: --timeout=5m
+
+      # govulncheck has no pinned version in docs/TECH_STACK.md; it is run
+      # via `go run` against its module path rather than installed from a
+      # speculative release tag.
+      - name: govulncheck
+        if: steps.gomod.outputs.exists == 'true'
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
