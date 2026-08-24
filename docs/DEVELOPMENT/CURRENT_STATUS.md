@@ -4,9 +4,9 @@
 
 ## Repository state
 
-The project repository has been newly created.
-
-No production implementation has been established yet.
+Phase 0 (repository/development foundation) is complete. Phase 1 (minimal end-to-end enforcement
+slice) has started: the Go module and service scaffold now exist and run, but no authorization,
+identity, policy, or audit logic has been implemented yet.
 
 Existing project documentation provides the current product and technology baseline.
 
@@ -20,45 +20,59 @@ Existing project documentation provides the current product and technology basel
   (`docs/DEVELOPMENT/REPOSITORY_BASELINE.md`).
 - CI baseline established (`docs/DEVELOPMENT/CI_BASELINE.md`,
   `.github/workflows/ci.yml`).
+- Go module and repository scaffold established (`agentgate/`, module path `agentgate`,
+  Go 1.26) — executable entry point, typed/validated configuration, structured (`log/slog`
+  JSON) logging, HTTP health/readiness (`/healthz`, `/readyz`), clean startup/graceful shutdown,
+  and package boundaries for future authorization/identity/policy/audit work. See TASK-01-01
+  result below.
 
 ## Current phase
 
-**Phase 0 — Repository and development foundation**
+**Phase 1 — Minimal end-to-end enforcement slice**
 
 ## Current task
 
-**TASK-00-03 — Establish CI Baseline**
+**TASK-01-01 — Go Module and Repository Scaffold**
 
-**Result:** Complete. Added a single GitHub Actions workflow
-(`.github/workflows/ci.yml`) that gates all Go validation steps on the presence of `go.mod` — it
-runs gofmt, `go vet`, race-enabled `go test`, `golangci-lint`, and `govulncheck` (all named in
-`docs/TECH_STACK.md`) once the Go module exists in Phase 1, and finishes green with a notice today,
-since there is no Go module or application code yet. No placeholder application code or dummy Go
-module was created to make CI exercise itself, per task scope. Docker builds, SBOM generation,
-signing, deployment, and integration-container jobs were explicitly deferred — see
-`docs/DEVELOPMENT/CI_BASELINE.md` for the full design, deferred-items list, and evolution plan. YAML
-was validated locally (`yaml.safe_load` + `yamllint`, no issues). No conflicts were found in
-`PROJECT_DEFINITION.md` or `TECH_STACK.md` requiring correction. **Phase 0's CI-baseline gap
-(recorded in `docs/DEVELOPMENT/REPOSITORY_BASELINE.md`) is now closed; Phase 0 is complete.**
+**Result:** Complete. Created one Go module (`agentgate/go.mod`, module path `agentgate`, `go
+1.26`) with zero external dependencies. Package layout: `cmd/agentgate` (entry point),
+`internal/config` (typed config, env-driven, validated at startup), `internal/logging`
+(`log/slog` JSON logger), `internal/httpserver` (health/readiness HTTP surface with graceful
+Start/Shutdown), and four doc-only boundary packages — `internal/authz`, `internal/identity`,
+`internal/policy`, `internal/audit` — each documenting the real future responsibility it will
+hold (referencing the relevant `docs/PROJECT_DEFINITION.md`/`docs/TECH_STACK.md` section and the
+open decisions it must not preempt) with no speculative interfaces or types. No Cedar,
+PostgreSQL, downstream-credential, or gateway-integration logic was implemented — none of that is
+in scope for this task. `.github/workflows/ci.yml` was updated to run its Go steps against
+`agentgate/go.mod` (the module lives in a subdirectory per `docs/PROJECT_DEFINITION.md §11`'s
+top-level layout, not the repo root) — CI now executes real `gofmt`/`go vet`/`go test -race`
+/`golangci-lint`/`govulncheck` checks instead of skipping. `.gitignore` extended for Go build/test
+artifacts. Locally: `gofmt -l .` clean, `go vet ./...` clean, `go build ./...` succeeds, `go test
+./...` passes (11 tests across `config`, `logging`, `httpserver`); the built binary was run
+directly and `/healthz`/`/readyz` both returned `200` while serving. `go test -race` could not run
+in this local sandbox (no cgo/gcc on this Windows host) — it will run in CI, where
+`ubuntu-latest` provides gcc by default; this is a local-environment gap, not a code defect.
+`govulncheck` did not complete locally (module download timed out in this sandbox); it is included
+in CI and will run there. Full report (module rationale, dependencies, deviations, assumptions) is
+in this task's completion report to the Lead Architect.
 
 ## Next objective
 
-Lead Architect to define the Phase 1 task (minimal end-to-end enforcement slice per
-`docs/DEVELOPMENT/MASTER_PLAN.md §4`), including the Go module/repository layout decision noted as
-open in `docs/DEVELOPMENT/REPOSITORY_BASELINE.md`.
+TASK-01-02 (Cedar decision core) may begin once the package/module structure above is reviewed —
+per `docs/PHASES/PHASE-01-TASKS.md`, do not start it in the same task.
 
 ## Not yet started
 
-- production Go application
-- agentgateway integration
-- Cedar implementation
-- production policy store
+- Cedar authorization decision logic
+- agentgateway ext_authz integration
+- production policy store (Postgres)
 - production audit implementation
 - downstream identity mechanism
 - tool governance
 - policy governance UI
 - production CI/CD hardening (integration tests, fuzzing, SBOM, signing, release automation —
-  baseline validation CI now exists, see `docs/DEVELOPMENT/CI_BASELINE.md`)
+  baseline validation CI now exists and now runs real Go checks, see
+  `docs/DEVELOPMENT/CI_BASELINE.md`)
 - production deployment configuration
 
 ## Current blockers

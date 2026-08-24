@@ -1,1 +1,11 @@
 docs/prompts
+
+# Go build/test artifacts (agentgate/ module)
+/agentgate/agentgate
+/agentgate/agentgate.exe
+*.test
+*.out
+
+# OS cruft
+.DS_Store
+Thumbs.db
