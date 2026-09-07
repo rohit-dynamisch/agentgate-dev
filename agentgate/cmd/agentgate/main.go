@@ -14,9 +14,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"agentgate/internal/config"
-	"agentgate/internal/httpserver"
-	"agentgate/internal/logging"
+	"github.com/Dynamisch-LLC/agentgate/internal/config"
+	"github.com/Dynamisch-LLC/agentgate/internal/httpserver"
+	"github.com/Dynamisch-LLC/agentgate/internal/logging"
 )
 
 func main() {

@@ -2,8 +2,9 @@ name: CI
 
 # Single CI workflow for the AgentGate repository.
 #
-# The Go module lives in agentgate/ (module path "agentgate"), per
-# docs/PROJECT_DEFINITION.md §11's top-level layout — the repository root
+# The Go module lives in agentgate/ (module path
+# "github.com/Dynamisch-LLC/agentgate"), per docs/PROJECT_DEFINITION.md §11's
+# top-level layout — the repository root
 # also holds docs/ and, in later phases, non-Go artifacts (gateway config,
 # Cedar policies, migrations). Every Go step below runs with
 # working-directory: agentgate and is gated on agentgate/go.mod existing,

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"agentgate/internal/httpserver"
-	"agentgate/internal/logging"
+	"github.com/Dynamisch-LLC/agentgate/internal/httpserver"
+	"github.com/Dynamisch-LLC/agentgate/internal/logging"
 )
 
 func newTestLogger() *slog.Logger {

@@ -20,8 +20,8 @@ Existing project documentation provides the current product and technology basel
   (`docs/DEVELOPMENT/REPOSITORY_BASELINE.md`).
 - CI baseline established (`docs/DEVELOPMENT/CI_BASELINE.md`,
   `.github/workflows/ci.yml`).
-- Go module and repository scaffold established (`agentgate/`, module path `agentgate`,
-  Go 1.26) — executable entry point, typed/validated configuration, structured (`log/slog`
+- Go module and repository scaffold established (`agentgate/`, module path
+  `github.com/Dynamisch-LLC/agentgate`, Go 1.26) — executable entry point, typed/validated configuration, structured (`log/slog`
   JSON) logging, HTTP health/readiness (`/healthz`, `/readyz`), clean startup/graceful shutdown,
   and package boundaries for future authorization/identity/policy/audit work. See TASK-01-01
   result below.
@@ -34,7 +34,7 @@ Existing project documentation provides the current product and technology basel
 
 **TASK-01-01 — Go Module and Repository Scaffold**
 
-**Result:** Complete. Created one Go module (`agentgate/go.mod`, module path `agentgate`, `go
+**Result:** Complete. Created one Go module (`agentgate/go.mod`, module path `github.com/Dynamisch-LLC/agentgate`, `go
 1.26`) with zero external dependencies. Package layout: `cmd/agentgate` (entry point),
 `internal/config` (typed config, env-driven, validated at startup), `internal/logging`
 (`log/slog` JSON logger), `internal/httpserver` (health/readiness HTTP surface with graceful
