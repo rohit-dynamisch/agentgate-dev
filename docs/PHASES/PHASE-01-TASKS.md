@@ -3,6 +3,20 @@
 **Date:** 2026-08-22  
 **Status:** Planned
 
+> **Superseded as the execution sequence (2026-09-09, DAY-01/TASK-01):**
+> `docs/PHASES/AGENTGATE_V1_15_DAY_PRODUCTION_PLAN.md` is now current. Mapping for continuity:
+>
+> | Old task | Status | New sequence |
+> |---|---|---|
+> | TASK-01-01 | Complete | carried forward as-is (Go module/service scaffold) |
+> | TASK-01-02 (Cedar decision core) | Superseded | Day 2 — Decision Core Productionization |
+> | TASK-01-03 (agentgateway integration) | Superseded | Day 8 — Agentgateway + MCP Production Integration |
+> | TASK-01-04 (MCP backend + E2E proof) | Superseded | Day 3 (tool governance) / Day 8 (E2E proof) |
+> | TASK-01-05 (hardening + review) | Superseded | Day 11 (failure modes) / Day 14 (security review) |
+>
+> Do not start any TASK-01-0x task below under this document's numbering; follow the 15-day plan
+> instead. This table is retained for historical continuity, not deleted.
+
 | Task | Priority | Owner | Depends on | Result |
 |---|---|---|---|---|
 | TASK-01-01 | P0 | Backend/Go | Phase 0 | Go module + service scaffold |

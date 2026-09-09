@@ -4,6 +4,15 @@
 **Status:** Planned  
 **Priority:** P0
 
+> **Superseded as the execution sequence (2026-09-09, DAY-01/TASK-01):**
+> `docs/PHASES/AGENTGATE_V1_15_DAY_PRODUCTION_PLAN.md` is now the current execution sequence,
+> starting from its Day 1 (architecture freeze, see
+> `docs/SECURITY/PRODUCTION-INVARIANTS.md`). TASK-01-01 below is complete and its output (the Go
+> module/service scaffold) carries forward unchanged. TASK-01-02 through TASK-01-05 below are
+> superseded by the 15-day plan's Day 2–Day 14 breakdown — see the mapping table in
+> `docs/PHASES/PHASE-01-TASKS.md`. This document is retained for historical context; do not
+> resume TASK-01-02 under this document's numbering.
+
 ## Objective
 
 Build the smallest real AgentGate system that proves:

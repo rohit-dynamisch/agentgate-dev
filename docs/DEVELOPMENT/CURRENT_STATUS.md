@@ -74,6 +74,9 @@ per `docs/PHASES/PHASE-01-TASKS.md`, do not start it in the same task.
   baseline validation CI now exists and now runs real Go checks, see
   `docs/DEVELOPMENT/CI_BASELINE.md`)
 - production deployment configuration
+- OSS/public-launch readiness (license decision, community-health files, repo location/naming —
+  deliberately deferred until after development, tracked in
+  `docs/DEVELOPMENT/OSS_READINESS.md`)
 
 ## Current blockers
 

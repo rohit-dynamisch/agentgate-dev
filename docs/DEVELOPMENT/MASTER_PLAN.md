@@ -5,6 +5,14 @@
 **Target deployment/development completion:** 2026-09-21
 **Working demonstration:** 2026-09-22
 
+> **Execution-sequence note (2026-09-09, DAY-01/TASK-01):**
+> `docs/PHASES/AGENTGATE_V1_15_DAY_PRODUCTION_PLAN.md` is now the current, detailed execution
+> sequence for Phase 1 onward — it targets production readiness, not just the minimal e2e slice
+> below. The phase breakdown in §4 remains valid strategic context and is not deleted or
+> superseded in substance; day-by-day task assignment now follows the 15-day plan rather than
+> this document's phase list. See `docs/SECURITY/PRODUCTION-INVARIANTS.md` for the accompanying
+> security/architecture freeze.
+
 ## 1. Objective
 
 Build the first working AgentGate product increment from the current repository baseline, using AI-driven implementation while preserving architectural control, testability, security, and maintainability.

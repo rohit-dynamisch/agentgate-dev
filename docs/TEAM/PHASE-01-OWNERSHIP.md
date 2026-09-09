@@ -3,6 +3,13 @@
 **Date:** 2026-08-22  
 **Status:** Proposed
 
+> **Superseded as the execution sequence (2026-09-09, DAY-01/TASK-01):**
+> Task numbering below (TASK-01-01..05) refers to the pre-15-day-plan sequence — see
+> `docs/PHASES/PHASE-01-TASKS.md` for the mapping to
+> `docs/PHASES/AGENTGATE_V1_15_DAY_PRODUCTION_PLAN.md`'s Day 1–15. The ownership *roles* described
+> below (Backend/Go owner, Integration owner, QA, etc.) remain valid context for the 15-day plan's
+> "Team Ownership" section; only the task-numbering mapping has changed.
+
 This is an ownership model for AI-assisted work.
 
 ## Team Lead
