@@ -1,5 +1,5 @@
 docs/prompts
-
+docs/gitignored
 # Go build/test artifacts (agentgate/ module)
 /agentgate/agentgate
 /agentgate/agentgate.exe
