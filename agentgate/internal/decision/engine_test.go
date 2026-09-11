@@ -4,57 +4,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"testing"
+
+	"github.com/Dynamisch-LLC/agentgate/internal/fixturepolicy"
 )
 
-// fixturePolicy is a small test/dev Cedar policy set covering: role-based
-// read access, role-based read+write access, an argument-dependent rule
-// (a payment cap), an explicit forbid on a destructive risk class, and a
-// deliberately unguarded rule used to exercise Cedar evaluation-error
-// behavior. Test/dev policy fixtures are acceptable for Day 2
-// (docs/PHASES/DAY-02-TASK-02.md); PostgreSQL-backed policy is Day 4.
-const fixturePolicy = `
-permit(
-  principal in AgentGate::Role::"reader",
-  action == AgentGate::Action::"InvokeTool",
-  resource
-) when {
-  resource.risk == "read"
-};
-
-permit(
-  principal in AgentGate::Role::"admin",
-  action == AgentGate::Action::"InvokeTool",
-  resource
-) when {
-  resource.risk == "read" || resource.risk == "write"
-};
-
-permit(
-  principal in AgentGate::Role::"payer",
-  action == AgentGate::Action::"InvokeTool",
-  resource
-) when {
-  resource.risk == "write" &&
-  context has amount &&
-  context.amount <= 1000
-};
-
-forbid(
-  principal,
-  action == AgentGate::Action::"InvokeTool",
-  resource
-) when {
-  resource.risk == "destructive"
-};
-
-permit(
-  principal in AgentGate::Role::"broken",
-  action == AgentGate::Action::"InvokeTool",
-  resource
-) when {
-  context.amount > 10
-};
-`
+// fixturePolicy is the canonical G1 fixture policy
+// (internal/fixturepolicy), also used by the G1 mock (internal/mockauthz)
+// so both exercise identical, well-understood policy behavior. Test/dev
+// policy fixtures are acceptable for Day 2 (docs/PHASES/DAY-02-TASK-02.md);
+// PostgreSQL-backed policy is Day 4.
+const fixturePolicy = fixturepolicy.CedarSource
 
 func mustEngine(t *testing.T) *Engine {
 	t.Helper()
