@@ -61,6 +61,20 @@ in this task's completion report to the Lead Architect.
 TASK-01-02 (Cedar decision core) may begin once the package/module structure above is reviewed —
 per `docs/PHASES/PHASE-01-TASKS.md`, do not start it in the same task.
 
+## G1 checkpoint — WS-E (DevOps) status (branch `g1/devops`, based on `g1/go-backend` @ `a6d11f2`)
+
+Complete: AG-OPS-G1-01 through AG-OPS-G1-06
+(`docs/PHASES/G1_WORKSTREAMS/05_DEVOPS_G1_DETAILED.md`). Reproducible G1 topology and configuration
+documented in `docs/PHASES/G1_WORKSTREAMS/DEVOPS_G1_ENVIRONMENT.md`; documented-but-unbuilt
+container packaging in `deploy/g1/Dockerfile.mock-authz` and `deploy/g1/docker-compose.yml`
+(Docker Desktop's daemon was unreachable in this environment — confirmed, not assumed). The
+clean-environment smoke test (AG-OPS-G1-05) was executed as a direct-OS-process substitute for a
+container-level run — build, start, readiness, ALLOW, two DENY categories, four negative/malformed
+cases, stop, and restart with byte-identical re-verification proving no hidden state — and is
+labeled explicitly as a substitute, not a container clean-room run. Recommendation: **CONDITIONAL
+PASS** for the G1 environment-reproducibility scope, pending an actual containerized run once a
+working Docker daemon is available. This does not affect the other streams' own G1 status.
+
 ## Not yet started
 
 - Cedar authorization decision logic
