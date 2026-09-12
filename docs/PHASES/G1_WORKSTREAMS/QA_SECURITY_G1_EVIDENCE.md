@@ -10,6 +10,26 @@ stream's own unit tests as if they were QA's; it builds the real
 (`docs/PHASES/G1_WORKSTREAMS/GO_BACKEND_G1_CONTRACT.md`) from a separate test
 package, `agentgate/qa/g1blackbox`, that imports no `internal/*` package.
 
+## Addendum — Corrective closeout (2026-09-12)
+
+Findings #1 (JSON `null` argument coercion) and #2 (`Classification.Risk` not enforced) below are
+**fixed**, not open, as of `g1/go-backend` commit `edefea6` (merged into this branch, commit
+`eb5020a`). Per Lead Architect instruction, the three tests that documented these as findings were
+converted into regression tests asserting the corrected behavior
+(`TestRegression_JSONNullArgument_RejectedAsMalformed`,
+`TestRegression_JSONNullArgument_DiffersFromZeroValueAllow`,
+`TestRegression_JSONNullArgument_DistinctFromOmittedArgument`,
+`TestRegression_RiskRequiredWhenKnownTrue_RejectedAsMalformed` — commit `5701eea`). The findings
+sections below are left as originally written (historical record of what was found and how); treat
+them as **superseded by the fix**, not as still-open items. Full detail:
+`docs/PHASES/G1_WORKSTREAMS/GO_BACKEND_G1_CONTRACT.md`'s "G1 corrective closeout" section.
+Finding #3 (trust boundary review) is unaffected and remains accurate as written.
+
+The suite was re-run in full after the merge and the test conversion: all 37 tests in
+`agentgate/qa/g1blackbox` pass (34 pre-existing + 3 rewritten to reflect the fix), with zero
+trust-boundary or other-finding tests modified, per the Lead Architect's explicit instruction not
+to touch anything beyond the stale findings.
+
 ## Tickets completed
 
 **AG-QA-G1-01 — Authoritative G1 test matrix.** Done. See "Test matrix and
