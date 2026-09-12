@@ -1,0 +1,13 @@
+{
+  "name": "transport_unknown_field",
+  "category": "malformed_input_transport",
+  "description": "BONUS fixture (not one of the six required G1 scenarios, included for thoroughness): the JSON body itself is well-formed but carries an undocumented top-level field. The mock's decoder uses DisallowUnknownFields, so this is rejected at the transport layer (HTTP 400) before it ever becomes a decision.Request -- there is no decision.Result for this case at all. Demonstrates the *other* place 'malformed input' can be rejected, distinct from fixture 06's decision-core-level malformed_request.",
+  "raw_body": "{\"execution_id\":\"exec-g1-0008\",\"workspace_id\":\"ws-g1-demo\",\"identity\":{\"agent_id\":\"agent-reader-01\",\"roles\":[\"reader\"]},\"tool\":{\"backend_id\":\"toy-mcp-backend\",\"name\":\"read_schedule\"},\"classification\":{\"known\":true,\"risk\":\"read\"},\"unexpected_extra_field\":\"contract-drift-guard\"}",
+  "expect": {
+    "http_status": 400,
+    "decision": "",
+    "reason": "",
+    "policy_version_nonempty": false,
+    "backend_reached": false
+  }
+}

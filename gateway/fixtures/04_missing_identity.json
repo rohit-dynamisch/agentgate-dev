@@ -1,0 +1,30 @@
+{
+  "name": "missing_identity",
+  "category": "missing_identity",
+  "description": "agent_id is empty. decision.Engine's validateIdentity rejects this before Cedar is ever consulted. G1 checkpoint scenario: 'missing identity'. Proves missing identity cannot become an implicit ALLOW.",
+  "request": {
+    "execution_id": "exec-g1-0004",
+    "workspace_id": "ws-g1-demo",
+    "identity": {
+      "agent_id": "",
+      "on_behalf_of": "",
+      "roles": ["reader"]
+    },
+    "tool": {
+      "backend_id": "toy-mcp-backend",
+      "name": "read_schedule"
+    },
+    "classification": {
+      "known": true,
+      "risk": "read"
+    },
+    "arguments": {}
+  },
+  "expect": {
+    "http_status": 200,
+    "decision": "DENY",
+    "reason": "invalid_identity",
+    "policy_version_nonempty": false,
+    "backend_reached": false
+  }
+}

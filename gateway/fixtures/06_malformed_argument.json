@@ -1,0 +1,32 @@
+{
+  "name": "malformed_argument",
+  "category": "malformed_input",
+  "description": "Declares an argument attribute with an unrecognized 'type' ('float', not one of string/int/bool). internal/mockauthz's wire-to-domain conversion produces a zero-value decision.AttributeValue for this, which decision.Engine treats as a malformed request -- never silently ignored or passed through. G1 checkpoint scenario: 'malformed request'.",
+  "request": {
+    "execution_id": "exec-g1-0006",
+    "workspace_id": "ws-g1-demo",
+    "identity": {
+      "agent_id": "agent-payer-01",
+      "on_behalf_of": "",
+      "roles": ["payer"]
+    },
+    "tool": {
+      "backend_id": "toy-mcp-backend",
+      "name": "issue_refund"
+    },
+    "classification": {
+      "known": true,
+      "risk": "write"
+    },
+    "arguments": {
+      "amount": { "type": "float", "value": 12.5 }
+    }
+  },
+  "expect": {
+    "http_status": 200,
+    "decision": "DENY",
+    "reason": "malformed_request",
+    "policy_version_nonempty": false,
+    "backend_reached": false
+  }
+}

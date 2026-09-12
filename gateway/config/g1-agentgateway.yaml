@@ -1,0 +1,79 @@
+# AgentGate — G1 agentgateway configuration (Gateway/MCP workstream, ticket AG-GW-G1-01/02)
+#
+# STATUS: reviewable configuration only. It has NOT been executed against the real
+# agentgateway binary in this environment (Docker Desktop's daemon is unreachable here —
+# see gateway/README.md "Docker / real-binary gap"). Do not present this as a verified
+# runtime artifact; it is the concrete, on-paper design for
+#
+#   MCP Client -> agentgateway -> ext_authz -> mock AgentGate (-> real MCP backend, later)
+#
+# It is intentionally ISOLATED from any production configuration:
+#   - it is not referenced by any deployment/compose/CI file in this repo;
+#   - every credential-shaped value below is a clearly-fake dev fixture, never a real secret;
+#   - it targets the non-production g1-mock-authz binary (agentgate/cmd/g1-mock-authz), never
+#     cmd/agentgate.
+#
+# Schema basis: this file follows the config shape documented at
+#   https://agentgateway.dev/docs/standalone/main/configuration/security/jwt-authn/
+#   https://agentgateway.dev/docs/standalone/main/configuration/security/external-authz/
+# (fetched during this ticket; see gateway/README.md for the exact fields verified and the
+# ones that remain unverified because the binary could not be run here).
+
+gateways:
+  default:
+    port: 3000 # MCP endpoint the agent/MCP client talks to (docs/PROJECT_DEFINITION.md §2)
+
+    # --- JWT validation (agentgateway's job; AgentGate never re-verifies signatures) ---
+    # docs/PROJECT_DEFINITION.md §2: "JWT signature validation ... Configured via jwtAuth in
+    # gateway/config.yaml." docs/TECH_STACK.md §0.3 correction: the field is jwks.file
+    # (standalone) / jwks.remote.jwksPath + backendRef (Kubernetes), not jwks.url.
+    #
+    # G1 SCOPE NOTE: claims-mapping (JWT claims -> decision.Identity) is Day 3/G2 work
+    # (internal/identity, not built yet — see GO_BACKEND_G1_CONTRACT.md known limitation #2).
+    # This block is included so the *intended* path is concrete end-to-end on paper
+    # (AG-GW-G1-01 DoD), but it is NOT exercised by the G1 harness: the harness constructs
+    # Identity directly, standing in for "whatever agentgateway + claims-mapping would have
+    # produced" once that layer exists.
+    jwtAuth:
+      mode: strict # reject any request without a valid, signature-verified token
+      issuer: https://dev-idp.g1-fixture.invalid/ # placeholder dev issuer, not a real IdP
+      audiences: ["agentgate-g1-fixture"]
+      jwks:
+        file: ./jwks/dev-fixture-jwks.json # dev-only fixture key, see jwks/README.md — NOT A SECRET
+
+    routes:
+      - name: g1-governed-mcp-route
+        # The single route a governed MCP call takes. There is deliberately no second route
+        # to the backend that skips policies.extAuthz below (AG-GW-G1-01 step 5: "identify any
+        # risk of a direct governed gateway->backend route bypassing AgentGate" — answer: none
+        # exists in this config; see gateway/README.md "Bypass check").
+        policies:
+          extAuthz:
+            # Transport: HTTP, because that is the transport the frozen G1 mock actually
+            # exposes (GO_BACKEND_G1_CONTRACT.md AG-GO-G1-04: POST /evaluate, JSON body/response).
+            # See gateway/README.md "Contract mismatch" for why this field, as documented,
+            # cannot literally reproduce the mock's bespoke JSON body — that gap is reported,
+            # not silently worked around.
+            host: "${AGENTGATE_MOCK_ADDR}" # e.g. localhost:8091 — see G1_MOCK_AUTHZ_ADDR
+            protocol:
+              http:
+                path: '"/evaluate"'
+                # NOTE (reported, not resolved — see gateway/README.md): agentgateway's
+                # documented extAuthz.protocol.http fields (path/addRequestHeaders/
+                # includeResponseHeaders/redirect, all CEL-expression-based) construct a
+                # *header/URL* callout, not an arbitrary JSON request body. There is no
+                # documented field here that assembles the mock's exact
+                # {execution_id, workspace_id, identity, tool, classification, arguments}
+                # JSON body from MCP request context. This is the exact ambiguity/mismatch
+                # AG-GW-G1-02's collaboration rule requires flagging back to Go
+                # Backend/Architect rather than inventing a gateway-only workaround.
+                addRequestHeaders:
+                  x-agentgate-note: '"see gateway/README.md Contract mismatch section"'
+        backends:
+          - name: toy-mcp-backend-fixture
+            # Placeholder MCP backend target. Real MCP E2E is explicitly out of scope for G1
+            # (docs/PHASES/G1_WORKSTREAMS/00_G1_CHECKPOINT_REFERENCE.md, "Explicitly out of
+            # scope"). No backend is implemented or run for G1; this host is never reachable
+            # and that is intentional — it exists only so the config shows a complete,
+            # concrete path with nothing hidden.
+            host: "toy-mcp-backend.g1-fixture.invalid:9100"

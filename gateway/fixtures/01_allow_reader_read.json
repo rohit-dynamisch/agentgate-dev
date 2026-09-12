@@ -1,0 +1,30 @@
+{
+  "name": "allow_reader_read",
+  "category": "ALLOW",
+  "description": "Valid identity (role=reader) invoking a tool classified risk=read. Cedar's explicit permit for reader+read matches. G1 checkpoint scenario: 'valid identity + allow'.",
+  "request": {
+    "execution_id": "exec-g1-0001",
+    "workspace_id": "ws-g1-demo",
+    "identity": {
+      "agent_id": "agent-reader-01",
+      "on_behalf_of": "",
+      "roles": ["reader"]
+    },
+    "tool": {
+      "backend_id": "toy-mcp-backend",
+      "name": "read_schedule"
+    },
+    "classification": {
+      "known": true,
+      "risk": "read"
+    },
+    "arguments": {}
+  },
+  "expect": {
+    "http_status": 200,
+    "decision": "ALLOW",
+    "reason": "policy_allow",
+    "policy_version_nonempty": true,
+    "backend_reached": true
+  }
+}
