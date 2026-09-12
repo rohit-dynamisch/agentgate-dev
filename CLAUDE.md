@@ -95,6 +95,6 @@ Read directly, in order:
 - `docs/DECISIONS/OPEN_DECISIONS.md`
 - `docs/SECURITY/PRODUCTION-INVARIANTS.md` — binding; no later work may contradict it without an
   explicit, recorded exception
-- `docs/AI/AI_DEVELOPMENT_MODEL.md`
+- `docs/DEVELOPMENT/AI_DEVELOPMENT_MODEL.md`
 
 Do not create competing architecture documents without an explicit reason.

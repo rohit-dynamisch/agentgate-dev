@@ -7,8 +7,8 @@ rediscovered by scrolling through chat history.
 **Right now:** `docs/DEVELOPMENT/CURRENT_STATUS.md` — one page, always current. If you only read
 one thing, read that.
 
-**How we work:** `docs/AI/AI_DEVELOPMENT_MODEL.md` — roles, the ChatGPT↔Claude↔you loop, and the
-folder conventions this map describes.
+**How we work:** `docs/DEVELOPMENT/AI_DEVELOPMENT_MODEL.md` — roles, the ChatGPT↔Claude↔you loop,
+and the folder conventions this map describes.
 
 ## The five kinds of document in this repo
 
@@ -79,12 +79,6 @@ docs/
 │                                                 2026-09-13 status note for what's resolved vs.
 │                                                 superseded by OPEN_DECISIONS.md
 │
-├── AI/
-│   └── AI_DEVELOPMENT_MODEL.md                  [core] roles (Lead Architect/ChatGPT, coding
-│                                                 agent/Claude, human coordinator), the checkpoint
-│                                                 operating loop (§2a), task discipline, change
-│                                                 management
-│
 ├── DECISIONS/
 │   └── OPEN_DECISIONS.md                        [living] the canonical unresolved-question
 │                                                 registry (O-001...O-008); resolved items move to
@@ -98,6 +92,10 @@ docs/
 ├── DEVELOPMENT/
 │   ├── CURRENT_STATUS.md                        [living] where the project is *right now* —
 │                                                 rewritten in place, not appended to
+│   ├── AI_DEVELOPMENT_MODEL.md                  [core] roles (Lead Architect/ChatGPT, coding
+│                                                 agent/Claude, human coordinator), the checkpoint
+│                                                 operating loop (§2a), task discipline, change
+│                                                 management
 │   ├── SETUP.md                                 [living reference] local build/run/test guide
 │                                                 for the agentgate/ Go module
 │   ├── CI_BASELINE.md                           [living reference] what CI checks and why

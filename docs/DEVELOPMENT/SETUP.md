@@ -176,7 +176,7 @@ If any of these fail, see §7.
 
 ## 8. Before you push
 
-- Read `CLAUDE.md` (repo-wide AI/engineering rules) and `docs/AI/AI_DEVELOPMENT_MODEL.md`.
+- Read `CLAUDE.md` (repo-wide AI/engineering rules) and `docs/DEVELOPMENT/AI_DEVELOPMENT_MODEL.md`.
 - Check `docs/DEVELOPMENT/CURRENT_STATUS.md` for the current checkpoint and
   `docs/DECISIONS/OPEN_DECISIONS.md` for unresolved architectural questions — don't guess past
   them.
