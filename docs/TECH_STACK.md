@@ -221,6 +221,23 @@ These need a decision before the affected component is built. None blocks *start
 | O-5 | **Cedar version + policy-analysis tooling** — needed for the dry-run "is this policy more permissive?" feature | Dry-run feature | Verification of cedar-go tooling still in progress. |
 | O-6 | **Managed-vs-self-hosted deployment target for v1** — affects whether we build tenant isolation and a control plane now | Tenancy scope | Definition D-11 says single-tenant runtime, tenant-aware schema. Confirm. |
 
+> **Status note (2026-09-13):** this table's own "O-N" numbering predates, and is a **different
+> numbering scheme** from, `docs/DECISIONS/OPEN_DECISIONS.md`'s "O-00N" items — the two are not
+> the same list; don't confuse `O-1` here with `O-001` there. `docs/DECISIONS/OPEN_DECISIONS.md`
+> is the canonical, currently-maintained open-decisions registry going forward. Per-item status,
+> without rewriting the analysis above:
+> - **O-1** (downstream identity) — still open; tracked as `OPEN_DECISIONS.md` O-001.
+> - **O-2** (MCP revision) — still open; tracked as `OPEN_DECISIONS.md` O-004.
+> - **O-3** (trust `ToolAnnotations`?) — **resolved**, and more strongly than proposed here:
+>   `docs/SECURITY/PRODUCTION-INVARIANTS.md §2` item 10 makes "never treated as authorization
+>   authority" a hard invariant, not just a UX default.
+> - **O-4** (license) — still open; tracked in `docs/DEVELOPMENT/OSS_READINESS.md`, not in
+>   `OPEN_DECISIONS.md`.
+> - **O-5** (Cedar version) — **resolved**: `cedar-go v1.8.0` is pinned in `agentgate/go.mod` and
+>   in active production use since the Day-2/G1 decision core.
+> - **O-6** (tenancy) — **resolved**: `docs/SECURITY/PRODUCTION-INVARIANTS.md §9` confirms
+>   single-tenant-per-deployment, matching D-11 as proposed here.
+
 ---
 
 ## 5. Recommended next step

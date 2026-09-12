@@ -4,6 +4,12 @@
 **Date:** 2026-08-22
 **Author:** Senior Software Engineer (AI coding agent)
 
+> **Historical snapshot (archived 2026-09-13):** this describes the repository as it existed on
+> 2026-08-22 — documentation-only, before any Go module or application code was created. It is
+> permanently a point-in-time record, not a document that will ever describe "current state"
+> again. For the actual current state, see `docs/DEVELOPMENT/CURRENT_STATUS.md`; for navigation,
+> `docs/README.md`.
+
 ---
 
 ## Current State

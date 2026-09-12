@@ -1,9 +1,10 @@
 # AgentGate — Setup and Getting Started
 
 **Audience:** anyone on the team setting up this repository locally for the first time.
-**Repository state this guide matches:** Phase 1 in progress — a working Go scaffold exists
-(`agentgate/`), with no authorization/policy/audit logic implemented yet (see
-`docs/DEVELOPMENT/CURRENT_STATUS.md` for the current phase/task).
+**Repository state this guide matches:** post-G1 (authorization contract frozen) — see
+`docs/DEVELOPMENT/CURRENT_STATUS.md` for the current checkpoint, and `docs/README.md` for full
+navigation. This guide covers the `agentgate/` Go module in detail (§3-8); the `gateway/`,
+`frontend/`, and `deploy/` trees each have their own README/setup notes at their root.
 
 ---
 
@@ -38,22 +39,33 @@ cd agentgate-dev
 ```
 agentgate-dev/
   CLAUDE.md                  coding-agent operating rules — read before making changes
-  docs/                      canonical project documentation — start with docs/PROJECT_DEFINITION.md
+  docs/                      canonical project documentation — start with docs/README.md
   .github/workflows/ci.yml   CI — runs the checks in §4 automatically on push/PR
   agentgate/                 the Go module — THE product code lives here
     go.mod                   module github.com/Dynamisch-LLC/agentgate, go 1.26
-    cmd/agentgate/           executable entry point (main.go)
+    cmd/agentgate/           production executable entry point (main.go)
+    cmd/g1-mock-authz/       non-production JSON/HTTP wrapper around the decision core,
+                             used for G1 cross-stream integration — never used by cmd/agentgate
     internal/config/         typed, validated startup configuration
     internal/logging/        structured (JSON) logging
     internal/httpserver/     health/readiness HTTP endpoints, graceful shutdown
-    internal/authz/          (boundary only — not implemented yet)
-    internal/identity/       (boundary only — not implemented yet)
-    internal/policy/         (boundary only — not implemented yet)
+    internal/decision/       the frozen authorization decision core (Request/Result, fail-closed)
+    internal/policy/         the narrow Cedar boundary — only package that imports cedar-go
+    internal/fixturepolicy/  shared canonical Cedar test/dev fixture
+    internal/mockauthz/      JSON wire layer for cmd/g1-mock-authz
+    internal/authz/          (boundary only — real ext_authz gRPC service, not implemented yet)
+    internal/identity/       (boundary only — JWT claims-mapping, not implemented yet)
     internal/audit/          (boundary only — not implemented yet)
+    qa/g1blackbox/           independent black-box test suite (imports no internal/* package)
+  gateway/                   agentgateway configuration + an independent Go verification harness
+  frontend/                  TypeScript models/parsing/state-machine for the frozen contract
+                             (no production UI framework chosen yet)
+  deploy/g1/                 Docker Compose topology for the G1 mock
 ```
 
 All Go commands below are run **from inside `agentgate/`** — that's where `go.mod` lives, not
-the repo root.
+the repo root. `gateway/harness` is its own separate Go module (its own `go.mod`); `frontend/` is
+an npm/Vitest project, not Go.
 
 ## 4. Build and test it
 
@@ -74,8 +86,10 @@ go test ./...
 ```
 
 Expected result: `gofmt -l .` prints nothing, and `go test ./...` reports `ok` for
-`internal/config`, `internal/logging`, and `internal/httpserver` (the other packages currently
-have no code, so `go test` reports `[no test files]` for them — that's expected, not a failure).
+`internal/config`, `internal/logging`, `internal/httpserver`, `internal/decision`,
+`internal/policy`, `internal/mockauthz`, and `qa/g1blackbox` (the boundary-only packages —
+`internal/authz`, `internal/identity`, `internal/audit`, and `internal/fixturepolicy`, which has
+no tests of its own — report `[no test files]`; that's expected, not a failure).
 
 Optional, matching CI more closely:
 
@@ -163,16 +177,18 @@ If any of these fail, see §7.
 ## 8. Before you push
 
 - Read `CLAUDE.md` (repo-wide AI/engineering rules) and `docs/AI/AI_DEVELOPMENT_MODEL.md`.
-- Check `docs/DEVELOPMENT/CURRENT_STATUS.md` for the current phase/task and
+- Check `docs/DEVELOPMENT/CURRENT_STATUS.md` for the current checkpoint and
   `docs/DECISIONS/OPEN_DECISIONS.md` for unresolved architectural questions — don't guess past
   them.
 - Run the checklist in §6 (CI will run the equivalent checks on your PR either way).
-- `docs/PHASES/PHASE-01-TASKS.md` and `docs/TEAM/PHASE-01-OWNERSHIP.md` describe how Phase 1 work
-  is currently divided across the team.
+- `docs/PHASES/AGENTGATE_V1_10_DAY_PARALLEL_TEAM_EXECUTION_PLAN.md` describes how work is
+  currently divided across workstreams/checkpoints.
 
 ## 9. Where to go next
 
+- `docs/README.md` — the documentation map; start here if you're not sure where something lives.
 - `docs/PROJECT_DEFINITION.md` — what AgentGate is and why (read this first if you're new).
 - `docs/TECH_STACK.md` — the technology choices and rationale.
 - `docs/DEVELOPMENT/CI_BASELINE.md` — exactly what CI checks and why.
-- `docs/DEVELOPMENT/REPOSITORY_BASELINE.md` — the state of the repo before any code existed.
+- `docs/PHASES/archive/REPOSITORY_BASELINE.md` — the state of the repo before any code existed
+  (historical).

@@ -3,7 +3,10 @@
 **Owner:** Lead Architect + QA  
 **Execution:** Claude Code / Senior Software Engineer  
 **Phase:** AgentGate v1 15-Day Production Readiness  
-**Status:** Ready for execution
+**Status:** Complete — accepted. Its deliverable, `docs/SECURITY/PRODUCTION-INVARIANTS.md`, is a
+living binding document; this task spec is kept as the historical record of what was assigned.
+The 15-day sequencing this task belonged to was itself superseded after Day 2 by
+`docs/PHASES/AGENTGATE_V1_10_DAY_PARALLEL_TEAM_EXECUTION_PLAN.md`.
 
 ## Objective
 
@@ -16,7 +19,7 @@ This task is documentation and architecture-freeze work. Do not implement Day 2+
 - `CLAUDE.md`
 - `docs/PROJECT_DEFINITION.md`
 - `docs/TECH_STACK.md`
-- `docs/DEVELOPMENT/MASTER_PLAN.md`
+- `docs/PHASES/archive/MASTER_PLAN.md`
 - `docs/DEVELOPMENT/CURRENT_STATUS.md`
 - `docs/DECISIONS/OPEN_DECISIONS.md`
 - existing Phase 1 planning/task documents
