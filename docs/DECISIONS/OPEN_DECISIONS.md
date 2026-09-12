@@ -1,6 +1,6 @@
 # AgentGate — Open Decisions
 
-**Status:** Active — O-001, O-003–O-007 open; O-002 resolved
+**Status:** Active — O-001, O-003–O-008 open; O-002 resolved
 **Date:** 2026-08-22
 
 This file contains unresolved questions that may affect architecture or implementation.
@@ -64,6 +64,37 @@ Current MCP assumptions about protocol sessions must not be carried into the des
 AgentGate should own an execution/correlation identifier for audit, future aggregate controls, and request grouping.
 
 **Current action:** Define as part of the request-context model.
+
+## O-008 — ext_authz transport mapping to the decision.Request contract
+
+**Priority:** High
+
+**Found:** G1 checkpoint, Gateway/MCP workstream (`g1/gateway-mcp`), confirmed against the real
+`agentgateway` binary once available (`gateway/README.md`, "Real-binary verification").
+
+agentgateway's documented `ext_authz` mechanisms — the HTTP protocol variant
+(`path`/`addRequestHeaders`/`includeResponseHeaders`/`redirect`, all CEL expressions operating on
+URL/headers only) and the gRPC variant (Envoy's generic `CheckRequest`/`CheckResponse`) — have no
+documented way to construct an arbitrary JSON request body. Neither natively produces the
+`decision.Request` shape (`execution_id`, `workspace_id`, `identity`, `tool`, `classification`,
+`arguments`) this project's frozen G1 contract defines. That JSON shape is an
+application/testing contract for the decision core, not necessarily agentgateway's native
+`ext_authz` wire protocol.
+
+The production mechanism by which the real `internal/authz` (not yet built, Day 3/8) receives an
+`ext_authz` callout and translates it into a `decision.Request` is undesigned. The most plausible
+approach — `internal/authz` parsing the raw included request body itself (via `internal/mcpreq`,
+per the repo-layout notes in `docs/PROJECT_DEFINITION.md §11`) rather than agentgateway's config
+DSL assembling AgentGate's bespoke JSON — is a hypothesis, not a decision.
+
+**Current action:** Design `internal/authz`'s ext_authz-to-`decision.Request` translation
+mechanism during the Day 3/8 gateway-integration task. Do not have Gateway/MCP or any other
+workstream invent a gateway-side adapter/shim to bridge this in the meantime — that would create a
+second, competing contract-mapping outside the component that should own it.
+
+**Allowed development approach:** Keep using the direct-HTTP mock/harness pattern already
+established (`agentgate/cmd/g1-mock-authz`, `gateway/harness`) for contract-level testing until
+`internal/authz` exists to close this gap for real.
 
 ## Resolved
 

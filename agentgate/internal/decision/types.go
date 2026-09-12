@@ -142,6 +142,16 @@ func (a AttributeValue) valid() bool { return a.kind != attributeKindInvalid }
 // contract the decision core, and everything built on top of it later,
 // depends on. Every field has a concrete Day 2 purpose; see
 // docs/PHASES/DAY-02-TASK-02.md, "Required Authorization Context".
+//
+// Trust note (G1, docs/PHASES/G1_WORKSTREAMS/GO_BACKEND_G1_CONTRACT.md):
+// Evaluate performs no signature or token verification of its own — every
+// field here is trusted exactly as given. Trust provenance is structural,
+// not a field on this type: the only legitimate production caller is the
+// ext_authz layer (internal/authz), which must populate Identity only
+// from claims agentgateway has already validated
+// (docs/SECURITY/PRODUCTION-INVARIANTS.md §1, §3). A Request built any
+// other way (including via the G1 mock) is a test fixture, not an
+// authenticated request.
 type Request struct {
 	// ExecutionID correlates this request through the decision and
 	// (later) audit. It is preserved unchanged into the Result on every
@@ -172,7 +182,14 @@ type Request struct {
 type Result struct {
 	Decision Decision
 	Reason   ReasonCode
-	Message  string
+
+	// Message is a human-readable detail, always authored by this
+	// package. It must never be populated from cedar-go's own
+	// Diagnostic.Errors/Reasons text or any other Cedar-internal string
+	// — Cedar's diagnostic detail is not authorization semantics
+	// (docs/PHASES/G1_WORKSTREAMS/01_GO_BACKEND_G1_DETAILED.md
+	// AG-GO-G1-03). May be empty on ALLOW.
+	Message string
 
 	// PolicyVersion is the exact policy version/hash Cedar evaluated for
 	// this decision. It is empty only when Cedar was never reached at
