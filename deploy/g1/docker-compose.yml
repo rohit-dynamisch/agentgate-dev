@@ -1,0 +1,87 @@
+# deploy/g1/docker-compose.yml — G1 contract-test topology (documented target,
+# NOT executed in this environment)
+#
+# STATUS: written but never run here. Docker Desktop's daemon was unreachable
+# in the sandbox this file was authored in (`docker version` / `docker compose`
+# cannot reach npipe:////./pipe/dockerDesktopLinuxEngine). This file is the
+# reviewable target topology for AG-OPS-G1-02; the actual G1 smoke test in
+# this environment was executed as direct OS processes instead (see
+# docs/PHASES/G1_WORKSTREAMS/DEVOPS_G1_ENVIRONMENT.md, "Direct-process smoke
+# test"). Build/run this the moment a working daemon is available, then
+# discard this comment block.
+#
+# Minimum G1 path (docs/PHASES/G1_WORKSTREAMS/00_G1_CHECKPOINT_REFERENCE.md):
+#
+#   MCP Client -> agentgateway -> mock AgentGate
+#
+# Only the mock-authz service is real/ours today. `agentgateway` and
+# `mcp-client` below are STUBS/PLACEHOLDERS standing in for Workstream B
+# (Gateway/MCP)'s artifact, which is being built in a separate, parallel
+# worktree and was not available to this workstream (per this task's
+# instructions: "use an isolated temporary fixture/stub ... and report the
+# dependency rather than inventing what Gateway would have produced"). Do
+# NOT treat the agentgateway/mcp-client service definitions below as
+# Gateway/MCP's actual output — replace them with WS-B's real config/image
+# once it exists, per docs/PHASES/G1_WORKSTREAMS/02_GATEWAY_MCP_G1_DETAILED.md.
+
+services:
+  mock-authz:
+    build:
+      context: ../..
+      dockerfile: deploy/g1/Dockerfile.mock-authz
+    image: agentgate/g1-mock-authz:g1
+    container_name: g1-mock-authz
+    ports:
+      - "8091:8091"
+    environment:
+      # Listen address inside the container. Keep container-internal port
+      # fixed at 8091 regardless of the host-side publish mapping above.
+      G1_MOCK_AUTHZ_ADDR: ":8091"
+    # No health/readiness probe is declared here: cmd/g1-mock-authz exposes
+    # no dedicated health endpoint today (only POST /evaluate; every other
+    # path/method returns 404/405). This is documented as a known gap for
+    # the Go Backend stream, not silently worked around with a fabricated
+    # healthcheck. A caller can approximate readiness with a POST /evaluate
+    # smoke request once the container is up (see the environment doc).
+    networks: [g1net]
+
+  # --- STUB placeholder: Gateway/MCP's actual artifact is not available to
+  # this workstream. This service definition documents WHERE and HOW a real
+  # agentgateway instance would plug into this topology once WS-B publishes
+  # its config; it is not itself a working gateway.
+  agentgateway:
+    # image: ghcr.io/agentgateway/agentgateway:<pinned-version>  # WS-B owns the pin
+    image: agentgate/g1-agentgateway-stub-NOT-PROVIDED
+    container_name: g1-agentgateway
+    profiles: ["gateway-stub-unavailable"] # never started by default; see note above
+    ports:
+      - "3000:3000"   # MCP endpoint (per docs/PROJECT_DEFINITION.md §2)
+      - "15000:15000" # admin UI
+    environment:
+      # Where the real agentgateway config would point its ext_authz callout.
+      # WS-B's config.yaml is the actual source of truth once it exists.
+      AGENTGATEWAY_EXT_AUTHZ_TARGET: "mock-authz:8091"
+    depends_on:
+      mock-authz:
+        condition: service_started
+    networks: [g1net]
+
+  # --- STUB placeholder: a real MCP client is WS-B/QA scope, not DevOps's.
+  mcp-client:
+    image: agentgate/g1-mcp-client-stub-NOT-PROVIDED
+    container_name: g1-mcp-client
+    profiles: ["gateway-stub-unavailable"]
+    depends_on:
+      - agentgateway
+    networks: [g1net]
+
+networks:
+  g1net:
+    driver: bridge
+
+# Explicitly out of scope for G1 (per this ticket's DoD and the assignment's
+# non-negotiable constraints):
+#   - PostgreSQL / audit persistence (Day 5+, WS-A)
+#   - SpiceDB (optional, not required for G1 or the v1 default stack)
+#   - TLS/mTLS between services (production hardening, not G1)
+#   - Any production image, Helm chart, SBOM, or image signing

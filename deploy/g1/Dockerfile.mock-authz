@@ -1,0 +1,46 @@
+# Dockerfile.mock-authz — G1 contract-test packaging for cmd/g1-mock-authz
+#
+# STATUS: written but NOT built or run in this environment. Docker Desktop's
+# daemon was unreachable in the sandbox this file was authored in
+# (`docker version` fails to connect to npipe:////./pipe/dockerDesktopLinuxEngine).
+# This file documents the intended G1 packaging shape so Gateway/QA can review
+# it and so it can be built/validated the moment a working daemon is
+# available. Do not treat it as evidence of a successful image build.
+#
+# Scope reminder: this packages the TEMPORARY, non-production G1 mock
+# (docs/PHASES/G1_WORKSTREAMS/GO_BACKEND_G1_CONTRACT.md, AG-GO-G1-04). It must
+# never be reused as a production AgentGate image — see
+# docs/PHASES/AGENTGATE_V1_10_DAY_PARALLEL_TEAM_EXECUTION_PLAN.md,
+# Integration Rule 2 ("Mocks Are Temporary Parallelization Tools").
+#
+# Intended build context: repository root, e.g.
+#   docker build -f deploy/g1/Dockerfile.mock-authz -t agentgate/g1-mock-authz:g1 .
+
+FROM golang:1.26 AS build
+WORKDIR /src
+COPY agentgate/go.mod agentgate/go.sum ./agentgate/
+WORKDIR /src/agentgate
+RUN go mod download
+WORKDIR /src
+COPY agentgate/ ./agentgate/
+WORKDIR /src/agentgate
+RUN CGO_ENABLED=0 go build -o /out/g1-mock-authz ./cmd/g1-mock-authz
+
+# Distroless-style minimal runtime image — no shell, non-root, matches the
+# "no insecure production defaults" instruction even though this is a
+# test-only artifact, not a production image.
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/g1-mock-authz /g1-mock-authz
+ENV G1_MOCK_AUTHZ_ADDR=":8091"
+EXPOSE 8091
+USER nonroot:nonroot
+ENTRYPOINT ["/g1-mock-authz"]
+
+# No HEALTHCHECK is declared: the mock exposes no dedicated readiness
+# endpoint today (see docs/PHASES/G1_WORKSTREAMS/DEVOPS_G1_ENVIRONMENT.md,
+# "Known gaps" — this is recorded as a gap for the Go Backend stream, not
+# silently patched here). A caller wanting a container-level readiness probe
+# would need to add one once that endpoint exists, or approximate it with
+# `wget`/`curl` against `/evaluate` — neither of which distroless ships,
+# which is itself evidence this is test-only packaging, not a production
+# base image decision.
