@@ -1,0 +1,6 @@
+{
+  "decision": "DENY",
+  "reason": "invalid_identity",
+  "message": "agent id is missing",
+  "execution_id": "exec-999"
+}

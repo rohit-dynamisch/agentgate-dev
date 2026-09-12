@@ -6,6 +6,13 @@ docs/gitignored
 *.test
 *.out
 
+# Node/frontend build artifacts
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+
 # OS cruft
 .DS_Store
 Thumbs.db

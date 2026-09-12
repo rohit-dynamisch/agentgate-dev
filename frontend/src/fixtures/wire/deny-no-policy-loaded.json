@@ -1,0 +1,6 @@
+{
+  "decision": "DENY",
+  "reason": "no_policy_loaded",
+  "message": "no policy loaded",
+  "execution_id": "exec-1003"
+}
