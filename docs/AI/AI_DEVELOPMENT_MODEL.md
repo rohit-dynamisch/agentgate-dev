@@ -1,6 +1,6 @@
 # AgentGate — AI Development Model
 
-**Status:** Initial
+**Status:** Finalized (checkpoint mechanics added 2026-09-12)
 **Date:** 2026-08-22
 **Owner:** Lead Software Architect
 
@@ -25,6 +25,34 @@ The project follows:
 **Architecture → Plan → Bounded Task → AI Implementation → Tests → Review → Documentation → Verified Status → Next Task**
 
 Important architectural knowledge must be recorded in the repository rather than remaining only in chat.
+
+## 2a. Checkpoint mechanics (the operating loop, made concrete)
+
+The project executes as a sequence of checkpoints (**G1, G2, ... GN**), each covering one or more
+parallel workstreams (Go Backend, Gateway/MCP, Frontend/UI, QA/Security, DevOps). Within a
+checkpoint, the loop in §2 runs as:
+
+1. **Plan.** The Lead Architect produces a checkpoint reference (the shared definition-of-done)
+   and, per workstream, a detailed task spec plus the literal prompt to hand to a coding agent.
+2. **Implement.** The human relays each prompt to a coding agent (often several in parallel, one
+   per workstream, on their own branch). The agent implements only its assigned scope, tests it,
+   and produces two distinct kinds of output — never blur them:
+   - **Durable output** — typed contracts, security evidence, environment references. Committed
+     to the repo; this is permanent project knowledge, referenced by later work.
+   - **Ephemeral handoff output** — an implementation report and a condensed code digest, written
+     for the human to forward to the Lead Architect. Never committed as permanent history, never
+     referenced from code or from durable docs. See `docs/README.md` §4 for exactly where each
+     kind lives.
+3. **Review.** The human forwards the ephemeral handoff output (plus any durable docs the Lead
+   Architect asks for) to the Lead Architect, who reviews it — approves, or sends back concrete
+   corrections, which the human relays for another implementation pass.
+4. **Close.** Once every workstream in the checkpoint is approved, its branches merge, any
+   corrective closeout lands, and the coding agent writes one `CLOSURE_SUMMARY.md` for the
+   checkpoint (durable, plain-language) before the next checkpoint starts.
+
+A coding agent must never silently redefine another workstream's contract, start a later
+checkpoint's work, or resolve an open decision on its own (§4, §5, §8 below still apply in full —
+this section only makes the recurring loop's mechanics and artifacts explicit).
 
 ## 3. Lead Architect responsibilities
 

@@ -527,7 +527,7 @@ func TestNegative_WrongPath(t *testing.T) {
 //
 // The wire contract documents each argument as {"type": "string"|"int"|
 // "bool", "value": <matching JSON value>}. This used to be a genuine
-// security finding (see docs/gitignored/diffs/04_QA_SECURITY_DIGEST.md,
+// security finding (see docs/PHASES/G1_WORKSTREAMS/results/04_QA_SECURITY_DIGEST.md,
 // "Security findings", and GO_BACKEND_G1_CONTRACT.md's "G1 corrective
 // closeout"): encoding/json's Unmarshal-into-non-pointer-scalar treats a
 // JSON `null` as a documented no-op, so a null value was silently accepted
@@ -706,7 +706,7 @@ func TestContract_ExecutionIDPreservedOnEveryPath(t *testing.T) {
 // originally did not enforce this — an omitted/blank risk reached Cedar
 // with an empty risk attribute and denied as no_matching_policy instead
 // (never an accidental ALLOW, but an unenforced "required" field; see
-// docs/gitignored/diffs/04_QA_SECURITY_DIGEST.md, finding #2). Fixed
+// docs/PHASES/G1_WORKSTREAMS/results/04_QA_SECURITY_DIGEST.md, finding #2). Fixed
 // upstream in decision.Engine.Evaluate(), which now denies
 // malformed_request before Cedar is ever consulted when Known is true and
 // Risk is empty/blank.

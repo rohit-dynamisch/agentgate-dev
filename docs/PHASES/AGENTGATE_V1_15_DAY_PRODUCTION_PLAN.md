@@ -4,6 +4,16 @@
 **Target:** AgentGate v1 production-ready release candidate  
 **Objective:** Build and prove the smallest production-capable AgentGate release, not a demo.
 
+> **Superseded as the execution sequence (2026-09-12):**
+> `docs/PHASES/AGENTGATE_V1_10_DAY_PARALLEL_TEAM_EXECUTION_PLAN.md` is the current execution
+> sequence — it compresses this plan's remaining days into parallel workstreams with
+> checkpoint/gate acceptance (G1, G2, ... GN) once Day 1 and Day 2 below were complete. This
+> document's Day 1/Day 2 sections describe work that was actually done (see
+> `docs/PHASES/DAY-01-TASK-01.md`, `docs/PHASES/DAY-02-TASK-02.md`); Day 3 onward here was never
+> executed under this sequencing and is retained for historical context only. Current status and
+> the active checkpoint are always in `docs/DEVELOPMENT/CURRENT_STATUS.md`; see `docs/README.md`
+> for the full documentation map.
+
 ## 1. V1 Outcome
 
 At Day 15, the production path must be:

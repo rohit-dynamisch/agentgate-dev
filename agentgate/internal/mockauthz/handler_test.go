@@ -275,7 +275,7 @@ func TestHandler_DeterministicAcrossRequests(t *testing.T) {
 // --- G1 corrective-closeout regression tests -------------------------------
 //
 // The three tests below regression-test the fixes made after the G1 review
-// (docs/gitignored/diffs — Lead AI review items 1-3): JSON `null` for a
+// (docs/PHASES/G1_WORKSTREAMS/results — Lead AI review items 1-3): JSON `null` for a
 // declared argument must be rejected as malformed for every supported
 // attribute type (not just int, where it was originally found), and
 // resultWire must always emit all five fields verbatim in the raw JSON
