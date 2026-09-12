@@ -1,0 +1,6 @@
+{
+  "decision": "DENY",
+  "reason": "unknown_tool",
+  "message": "tool is not classified",
+  "execution_id": "exec-1000"
+}

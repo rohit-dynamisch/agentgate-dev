@@ -1,0 +1,10 @@
+{
+  "reason": "background refresh failed 3 times; last confirmed result shown below may no longer reflect the active policy",
+  "staleSince": "2026-09-12T10:15:00Z",
+  "lastKnown": {
+    "decision": "ALLOW",
+    "reason": "policy_allow",
+    "policy_version": "504c632d1057fc09060a8263928618e51e6b2a8b8bc6350d253d3c3e37e89e19",
+    "execution_id": "exec-123"
+  }
+}

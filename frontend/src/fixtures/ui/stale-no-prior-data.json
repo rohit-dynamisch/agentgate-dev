@@ -1,0 +1,5 @@
+{
+  "reason": "connection to AgentGate was lost before any decision was ever successfully retrieved",
+  "staleSince": "2026-09-12T10:16:30Z",
+  "lastKnown": null
+}

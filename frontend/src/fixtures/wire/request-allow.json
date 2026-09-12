@@ -1,0 +1,17 @@
+{
+  "execution_id": "exec-123",
+  "workspace_id": "ws-1",
+  "identity": {
+    "agent_id": "agent-1",
+    "on_behalf_of": "",
+    "roles": ["reader"]
+  },
+  "tool": {
+    "backend_id": "backend-a",
+    "name": "read_schedule"
+  },
+  "classification": {
+    "known": true,
+    "risk": "read"
+  }
+}

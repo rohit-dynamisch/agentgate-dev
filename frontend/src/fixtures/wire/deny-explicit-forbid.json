@@ -1,0 +1,7 @@
+{
+  "decision": "DENY",
+  "reason": "policy_deny",
+  "message": "an explicit policy denied this request",
+  "policy_version": "504c632d1057fc09060a8263928618e51e6b2a8b8bc6350d253d3c3e37e89e19",
+  "execution_id": "exec-124"
+}

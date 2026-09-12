@@ -1,0 +1,16 @@
+{
+  "name": "agentgate-frontend-g1",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "AgentGate G1 frontend contract layer: typed external API models, deterministic fixtures, and failure/stale-state handling for the frozen Go Backend G1 authorization contract. This is NOT a shipped UI application — see README section in docs/PHASES/G1_WORKSTREAMS/03_FRONTEND_UI_G1_DETAILED.md and the WS-C G1 report for why (production framework choice — React vs React Native vs other — is an open decision, not made here).",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}
