@@ -51,7 +51,97 @@ No governed gateway->backend route bypassing AgentGate exists in this configurat
 | `harness/` | An independent Go module (`gateway/harness`, no dependency on the `agentgate` module) that sends every fixture, over real HTTP, to a running `g1-mock-authz` and asserts the response and enforcement gate. This is the **verification harness** called for in the assignment brief — not a proxy, not MCP transport, not a production component. |
 | `harness/cmd/g1report` | A human-readable CLI report over the same fixtures (`go run ./cmd/g1report`). |
 
-## Docker / real-binary gap (read this before trusting the config above)
+## Real-binary verification (added 2026-09-12, once Docker became available)
+
+The original version of this report said Docker Desktop's daemon was unreachable and the real
+`agentgateway` binary had never been executed. That changed in a later session. This section
+records what was actually done and found — **read it alongside**, not instead of, the original
+"Docker / real-binary gap" narrative below, which is left intact for history.
+
+**The real binary was pulled and run:**
+
+```
+$ docker pull ghcr.io/agentgateway/agentgateway:latest
+Digest: sha256:bf2f339ef326d32def2aaeb44b1b4549801293c19b89e764a4228667d97d9896
+```
+
+**Validating the original config surfaced two real schema bugs**, not just an unverified design:
+
+```
+$ docker run --rm -v "$(pwd)/gateway/config:/etc/agentgateway" ghcr.io/agentgateway/agentgateway:latest \
+    --validate-only -f /etc/agentgateway/g1-agentgateway.yaml
+Error: gateways.default: unknown field `routes` at line 1 column 537
+```
+
+`routes` is a **top-level key, a sibling of `gateways`** in the real schema — not nested under
+`gateways.<name>` as originally written (confirmed against
+`https://agentgateway.dev/docs/standalone/main/configuration/security/external-authz/`'s own
+minimal example: "Top-level keys are `gateways` and `routes`"). After moving it:
+
+```
+Error: routes[0]: unknown field `name` at line 1 column 537
+```
+
+Route and backend list items also do not accept a `name` field. After removing `name` from both
+the route and the backend entry, and separately fixing the JWKS fixture (see below):
+
+```
+Configuration is valid!
+```
+
+**Both fixes are now applied directly to `config/g1-agentgateway.yaml`** (not left as a
+separate scratch file) — the `routes` top-level placement and the removed `name` fields. A third,
+smaller issue was found and fixed the same way: `config/jwks/dev-fixture-jwks.json` originally
+had a `_comment` field alongside `keys`, which the real JWKS loader also rejects as unknown; the
+file now contains only `{"keys": []}` (the explanation moved to `jwks/README.md`, where it already
+lived).
+
+**The binary was then actually started** (not just validated), with the mock's port referenced via
+`host.docker.internal:8091`:
+
+```
+$ docker run -d --name g1-agentgateway -e AGENTGATE_MOCK_ADDR=host.docker.internal:8091 \
+    -w /etc/agentgateway -v "$(pwd)/gateway/config:/etc/agentgateway" -p 3000:3000 \
+    ghcr.io/agentgateway/agentgateway:latest -f /etc/agentgateway/g1-agentgateway.yaml
+
+$ docker logs g1-agentgateway
+...
+2026-09-12T13:08:30.969952Z  info  app  serving UI at http://localhost:15000/ui
+2026-09-12T13:08:30.969966Z  info  agent_core::readiness  Task 'agentgateway' complete (107.832667ms), marking server ready
+2026-09-12T13:08:30.970044Z  info  management::hyper_helpers  listener established  address=127.0.0.1:15000 component="admin"
+2026-09-12T13:08:30.970212Z  info  proxy::gateway  started bind  bind="bind/3000"
+```
+
+The process stayed up, bound `:3000`, and self-reported ready. **An unauthenticated request was
+then sent to confirm JWT enforcement is real, not just configured:**
+
+```
+$ curl -s -o /dev/null -w "http_status=%{http_code}\n" http://localhost:3000/
+http_status=401
+```
+
+`401`, with no ext_authz call ever reaching the mock (nothing appeared in the mock's own logs for
+this request) — jwtAuth `strict` mode is genuinely enforced before ext_authz is ever consulted,
+exactly matching the intended trust boundary. Separately, the admin UI (`:15000`) was confirmed
+bound to `127.0.0.1`/`::1` only (inside the container, never published) — consistent with, not a
+violation of, the "admin surface must not be externally reachable" invariant.
+
+**What this resolves:** the real `agentgateway` binary genuinely runs, loads this exact config,
+and enforces JWT authentication before anything downstream — the "was the binary ever executed"
+question is closed, and the config file itself no longer contains any known schema error.
+
+**What this does NOT resolve:** the "Contract-mismatch finding" below (agentgateway's documented
+`extAuthz.protocol.http` fields have no way to construct the mock's bespoke JSON request body) is
+an architecture question, not a Docker-availability question. Running the real binary with a
+validly-signed JWT would still hit this exact wall the moment the request reached the
+`extAuthz` policy — the fixture JWKS deliberately has zero keys (`{"keys": []}`), so no signed
+token can validate against it anyway, and generating a real key pair + signed token was judged
+out of scope for this verification pass (it would only reconfirm, empirically, something the
+published agentgateway docs already establish structurally). This finding stands exactly as
+originally reported, now with additional confidence: it is the *only* remaining gap, not one of
+several unknowns.
+
+## Docker / real-binary gap (original narrative, kept for history — see above for the update)
 
 Verified at the start of this work and again now:
 

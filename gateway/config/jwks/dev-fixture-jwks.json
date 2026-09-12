@@ -1,4 +1,3 @@
 {
-  "_comment": "Placeholder, non-secret JWKS fixture for the isolated G1 gateway config. Not a real key. Not consumed by the G1 mock or harness — see README.md in this directory.",
   "keys": []
 }
