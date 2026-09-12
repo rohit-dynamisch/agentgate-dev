@@ -43,8 +43,8 @@ clarifications only — the Day-2 shape already satisfies the required semantic 
 | `Tool.BackendID` | `string` | **Required**, non-empty | Identifies the backend the tool belongs to. |
 | `Tool.Name` | `string` | **Required**, non-empty | Tool name. `BackendID + "/" + Name` becomes the Cedar resource id. |
 | `Classification.Known` | `bool` | **Required** semantically (`false` always denies) | `false` ⇒ unconditional `DENY`/`unknown_tool` before Cedar is ever consulted. |
-| `Classification.Risk` | `string` | Required when `Known == true` | Becomes the Cedar resource's `risk` attribute (e.g. `"read"`, `"write"`, `"destructive"`). Ignored/irrelevant when `Known == false`. |
-| `Arguments` | `map[string]decision.AttributeValue` | Optional, per-key | Only declared, policy-relevant attributes. **There is no other channel for argument data to reach Cedar** — anything not placed in this map is structurally invisible to policy evaluation. A zero-value `AttributeValue` (not constructed via `StringAttr`/`IntAttr`/`BoolAttr`) is treated as malformed. |
+| `Classification.Risk` | `string` | **Required and enforced** when `Known == true` (as of the G1 corrective closeout — see below) | Becomes the Cedar resource's `risk` attribute (e.g. `"read"`, `"write"`, `"destructive"`). Ignored/irrelevant when `Known == false`. An empty/blank `Risk` while `Known == true` denies as `malformed_request`, before Cedar is ever consulted. |
+| `Arguments` | `map[string]decision.AttributeValue` | Optional, per-key | Only declared, policy-relevant attributes. **There is no other channel for argument data to reach Cedar** — anything not placed in this map is structurally invisible to policy evaluation. A zero-value `AttributeValue` (not constructed via `StringAttr`/`IntAttr`/`BoolAttr`) is treated as malformed. At the wire layer (`mockauthz`), a JSON `null` for any declared attribute is explicitly rejected the same way — see "G1 corrective closeout" below. |
 
 ### Authentication / trust-provenance assumption (resolved, documented — not a new field)
 
@@ -77,8 +77,9 @@ silently — flag it back; no code depends on the opposite choice being wrong.
 | `OnBehalfOf == AgentID` (non-empty) | `DENY` | `invalid_identity` | `""` |
 | Empty or blank-entry `Roles` | `DENY` | `invalid_identity` | `""` |
 | `Classification.Known == false` | `DENY` | `unknown_tool` | `""` |
+| `Classification.Known == true` and `Risk` empty/blank | `DENY` | `malformed_request` | `""` |
 | Missing `ExecutionID`/`WorkspaceID`/`Tool.BackendID`/`Tool.Name` | `DENY` | `malformed_request` | `""` |
-| Zero-value/invalid `AttributeValue` in `Arguments` | `DENY` | `malformed_request` | `""` |
+| Zero-value/invalid `AttributeValue` in `Arguments` (including wire-level JSON `null`) | `DENY` | `malformed_request` | `""` |
 | Cedar reports an internal evaluation error (`Diagnostic.Errors` non-empty) | `DENY` | `evaluation_error` | evaluated version (Cedar *was* reached) |
 | No policy loaded in the `Engine` at all | `DENY` | `no_policy_loaded` | `""` |
 
@@ -98,8 +99,8 @@ determinism and argument-dependent-rule cases).
 |---|---|---|
 | `Decision` | `decision.Decision` (`"ALLOW"` \| `"DENY"`) | Exactly two values. There is no third "error" decision — every failure path resolves to `DENY`. |
 | `Reason` | `decision.ReasonCode` (stable string enum — see table above) | Deterministic category; audit/callers never need to parse free text to know what happened. |
-| `Message` | `string` | Human-readable detail. **Never populated from raw Cedar diagnostic text** — always an AgentGate-authored string (see below). May be empty on `ALLOW`. |
-| `PolicyVersion` | `string` | The exact policy version/hash Cedar evaluated for this decision — hex SHA-256 of the loaded Cedar source bytes. Empty **only** when Cedar was never reached (see the denial matrix above). Never backfilled from "whatever is currently active." |
+| `Message` | `string` | Human-readable detail. **Never populated from raw Cedar diagnostic text** — always an AgentGate-authored string (see below). May be empty (`""`) on `ALLOW` — but the JSON key is always present on the wire, never omitted (see "G1 corrective closeout" below). |
+| `PolicyVersion` | `string` | The exact policy version/hash Cedar evaluated for this decision — hex SHA-256 of the loaded Cedar source bytes. Empty (`""`) **only** when Cedar was never reached (see the denial matrix above) — but, like `Message`, the JSON key is always present on the wire. Never backfilled from "whatever is currently active." |
 | `ExecutionID` | `string` | Copied unchanged from `Request.ExecutionID`. |
 
 ### "No raw Cedar diagnostics" guarantee
@@ -265,3 +266,75 @@ the freeze boundary this ticket exists to establish.
 the `mockauthz` wire shape requires Architect review and updated tests in both
 `internal/decision` and `internal/mockauthz`
 (`docs/PHASES/G1_WORKSTREAMS/00_G1_CHECKPOINT_REFERENCE.md`, DoD item 10).
+
+---
+
+## G1 corrective closeout (post-review, 2026-09-12)
+
+Following independent review by the Lead Architect (external review of all five workstream
+reports as one system), three concrete corrections were applied on this branch before G1 is
+considered frozen. These are documented here as the final semantics — not as pending items.
+
+### 1. JSON `null` for a declared argument is now rejected as malformed, for every type
+
+Fixed in `agentgate/internal/mockauthz/wire.go`, `attributeWire.toDomain()`: a literal JSON `null`
+value (or an empty/missing `value`) now always produces the zero-value `decision.AttributeValue{}`
+— which `decision.Engine` already denies as `malformed_request` — instead of being silently
+unmarshaled into a Go zero value (`0`/`""`/`false`) and treated as a *valid* attribute. Previously
+this only affected `int` in practice (found by three independent workstreams), but the fix is
+type-agnostic: `null` is checked before the type switch, so `string`/`int`/`bool` are all covered.
+Regression tests: `TestHandler_NullArgument_RejectedForEveryAttributeType` (table-driven, all
+three types), `TestHandler_NullArgument_DiffersFromZeroValueAllow` (proves `amount: null` no
+longer produces the same outcome as `amount: 0`).
+
+### 2. `resultWire` always emits all five fields — `omitempty` removed
+
+Fixed in `agentgate/internal/mockauthz/wire.go`: `Message` and `PolicyVersion` are no longer
+tagged `,omitempty`. Every response now includes `decision`, `reason`, `message`,
+`policy_version`, and `execution_id` as literal JSON keys, with `""` where the value is empty —
+matching this document's own worked examples exactly, rather than silently dropping keys three
+independent workstreams separately noticed as contract drift. Regression test:
+`TestHandler_ResultFieldsAlwaysPresentInRawJSON` (inspects the literal response bytes as a
+`map[string]json.RawMessage`, not just the decoded Go struct, since struct-decode cannot
+distinguish "key absent" from "key present and empty").
+
+### 3. `Classification.Risk` is now enforced as required when `Known == true`
+
+Fixed in `agentgate/internal/decision/engine.go`, `Engine.Evaluate()`: an empty/blank `Risk` while
+`Known == true` now denies with `ReasonMalformedRequest` before Cedar is ever consulted, matching
+what this document already said was "required." Previously this fell through to Cedar and denied
+as `ReasonNoMatchingPolicy` instead — never an accidental `ALLOW`, but an unenforced "required"
+field at a supposedly frozen boundary (found by QA/Security). Regression tests:
+`TestEvaluate_KnownToolWithoutRiskIsMalformed`, `TestEvaluate_KnownToolWithBlankRiskIsMalformed`
+(in `internal/decision`).
+
+### 4. Not changed here: the ext_authz transport-mapping question (explicit forward dependency)
+
+The Gateway/MCP workstream's "contract-mismatch" finding — that agentgateway's documented
+`extAuthz.protocol.http` fields have no way to construct this contract's bespoke JSON request
+body — is **not** a bug in this contract and is **not resolved by this closeout**. It is recorded
+here as an explicit, carried-forward architectural dependency for whichever task builds the real
+`internal/authz` (Day 3/8): that component is the trusted adapter between agentgateway's actual
+`ext_authz` callout (HTTP or gRPC `CheckRequest`) and this frozen `decision.Request` shape — the
+frozen JSON contract is an application/testing contract, not necessarily the native `ext_authz`
+wire protocol. See `gateway/README.md`'s "Real-binary verification" section (branch
+`g1/gateway-mcp`) for the full evidence trail, and `docs/DECISIONS/OPEN_DECISIONS.md` O-001 (the
+related, still-open downstream-identity question) for where this is tracked at the architecture
+level.
+
+### Verification after all three fixes
+
+`gofmt -l .` clean · `go vet ./...` clean · `go build ./...` clean · `go test ./...` — all
+packages pass, including the new regression tests above and every pre-existing test (no
+regressions; nothing on this branch had previously exercised the now-fixed gaps).
+`go test -race` unverified locally (same documented sandbox limitation as the rest of this
+branch's work).
+
+**Follow-up owed to satellite branches:** `g1/qa-security`'s own test file
+(`agentgate/qa/g1blackbox/blackbox_test.go`) contains two tests
+(`TestSecurityFinding_JSONNullArgument_SilentlyBecomesZeroValue_Int`,
+`TestSecurityFinding_JSONNullArgument_ChangesBrokenRoleOutcome`) that assert the **old, buggy**
+behavior as a documented finding. Once this branch's fix is merged, those two tests will fail
+(correctly) until updated to assert the corrected behavior (`DENY`/`malformed_request`) instead —
+this is expected, not a regression, and is called out explicitly here rather than silently left
+for someone to discover.
