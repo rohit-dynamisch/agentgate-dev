@@ -7,8 +7,9 @@ rediscovered by scrolling through chat history.
 **Right now:** `docs/DEVELOPMENT/CURRENT_STATUS.md` — one page, always current. If you only read
 one thing, read that.
 
-**How we work:** `docs/DEVELOPMENT/AI_DEVELOPMENT_MODEL.md` — roles, the ChatGPT↔Claude↔you loop,
-and the folder conventions this map describes.
+**How we work:** `/WORKFLOW.md` (repository root) — roles, the ChatGPT↔Claude↔you loop, the
+per-checkpoint codebase-documentation requirement, and the folder conventions this map describes.
+Self-contained; this is the file to hand a Lead Architect session that has no repo access.
 
 ## The five kinds of document in this repo
 
@@ -43,7 +44,8 @@ docs/PHASES/G{N}_WORKSTREAMS/
 ├── <CONTRACT_OR_EVIDENCE_DOCS>.md    durable output: frozen contracts, security evidence,
 │                                      environment references — committed, permanent
 ├── CLOSURE_SUMMARY.md                written once the checkpoint merges — the durable,
-│                                      human-readable "what shipped" record (see kind 5)
+│                                      human-readable record of what shipped AND a codebase
+│                                      walkthrough with diagrams (see kind 5 and /WORKFLOW.md §4)
 └── results/                          GITIGNORED — ephemeral reports + digests for the
                                        human↔ChatGPT review loop; never permanent, never
                                        referenced from code or from durable docs
@@ -55,9 +57,10 @@ Raw prompts (the literal text fed to Claude, usually written by ChatGPT) live in
 ### 5. Checkpoint closure summaries — the durable "what happened" record
 
 At the end of each checkpoint, once its branches merge, one `CLOSURE_SUMMARY.md` is written into
-that checkpoint's folder: a short, plain-language recap of what shipped, what was decided, and
-what's carried forward. (Not yet written for G1 — added the first time a future checkpoint
-closes under this convention.)
+that checkpoint's folder. It exists specifically so a human reviewer never has to lose track of
+what AI-written code actually does: a plain-language recap of what shipped, a **codebase
+walkthrough with at least one diagram** explaining how the new pieces fit together and why they
+were built that way, and what's carried forward. Full requirements in `/WORKFLOW.md` §4.
 
 ### 6. Archive — superseded or point-in-time, kept for history, never "current" again
 
@@ -69,6 +72,9 @@ is deleted; everything here is annotated with why it's here and what replaced it
 ## Full file index
 
 ```
+(repo root)/
+└── WORKFLOW.md                                  [core, canonical] the workflow doc — see above
+
 docs/
 ├── README.md                                    you are here — the map
 ├── PROJECT_DEFINITION.md                        [core] the single source of truth: product
@@ -92,10 +98,9 @@ docs/
 ├── DEVELOPMENT/
 │   ├── CURRENT_STATUS.md                        [living] where the project is *right now* —
 │                                                 rewritten in place, not appended to
-│   ├── AI_DEVELOPMENT_MODEL.md                  [core] roles (Lead Architect/ChatGPT, coding
-│                                                 agent/Claude, human coordinator), the checkpoint
-│                                                 operating loop (§2a), task discipline, change
-│                                                 management
+│   ├── AI_DEVELOPMENT_MODEL.md                  [redirect stub] moved to /WORKFLOW.md at repo
+│                                                 root; kept only so existing references to this
+│                                                 path keep working
 │   ├── SETUP.md                                 [living reference] local build/run/test guide
 │                                                 for the agentgate/ Go module
 │   ├── CI_BASELINE.md                           [living reference] what CI checks and why

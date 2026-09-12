@@ -83,9 +83,11 @@ Report:
 
 ## Project documents
 
-The canonical project documents are under `docs/`. Start with **`docs/README.md`** — the
-documentation map — which points to everything below and says which strategy/plan document is
-currently active (that changes over time; the map doesn't).
+Start with **`/WORKFLOW.md`** (repo root) — roles, the checkpoint loop, and the per-checkpoint
+codebase-documentation requirement (`CLOSURE_SUMMARY.md`) that applies to every task completed
+under this file's rules. Then **`docs/README.md`** — the documentation map — which points to
+everything below and says which strategy/plan document is currently active (that changes over
+time; the map doesn't).
 
 Read directly, in order:
 
@@ -95,6 +97,5 @@ Read directly, in order:
 - `docs/DECISIONS/OPEN_DECISIONS.md`
 - `docs/SECURITY/PRODUCTION-INVARIANTS.md` — binding; no later work may contradict it without an
   explicit, recorded exception
-- `docs/DEVELOPMENT/AI_DEVELOPMENT_MODEL.md`
 
 Do not create competing architecture documents without an explicit reason.
