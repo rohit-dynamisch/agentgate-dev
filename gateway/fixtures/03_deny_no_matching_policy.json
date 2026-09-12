@@ -1,0 +1,30 @@
+{
+  "name": "deny_no_matching_policy",
+  "category": "DENY",
+  "description": "Valid identity (role=reader) invoking a tool classified risk=write. No permit matches (reader is only granted risk=read) and there is no explicit forbid either -- Cedar's structural default-deny applies. Distinguishes 'no_matching_policy' from the explicit-forbid DENY in fixture 02.",
+  "request": {
+    "execution_id": "exec-g1-0003",
+    "workspace_id": "ws-g1-demo",
+    "identity": {
+      "agent_id": "agent-reader-01",
+      "on_behalf_of": "",
+      "roles": ["reader"]
+    },
+    "tool": {
+      "backend_id": "toy-mcp-backend",
+      "name": "update_schedule"
+    },
+    "classification": {
+      "known": true,
+      "risk": "write"
+    },
+    "arguments": {}
+  },
+  "expect": {
+    "http_status": 200,
+    "decision": "DENY",
+    "reason": "no_matching_policy",
+    "policy_version_nonempty": true,
+    "backend_reached": false
+  }
+}
