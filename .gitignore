@@ -1,5 +1,7 @@
 docs/prompts
 docs/gitignored
+docs/PHASES/G1_WORKSTREAMS/results
+
 # Go build/test artifacts (agentgate/ module)
 /agentgate/agentgate
 /agentgate/agentgate.exe

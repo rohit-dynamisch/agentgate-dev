@@ -49,12 +49,27 @@ type attributeWire struct {
 }
 
 // toDomain converts one wire attribute into a decision.AttributeValue. An
-// unknown type, or a value that does not match the declared type, becomes
-// the zero-value AttributeValue — decision.Engine already treats that
-// deterministically as ReasonMalformedRequest, so this package does not
-// duplicate that validation; it simply lets an invalid attribute flow
-// through to the real, already-tested rule.
+// unknown type, a value that does not match the declared type, or a
+// literal JSON null becomes the zero-value AttributeValue —
+// decision.Engine already treats that deterministically as
+// ReasonMalformedRequest, so this package does not duplicate that
+// validation; it simply lets an invalid attribute flow through to the
+// real, already-tested rule.
+//
+// The explicit null check matters: json.Unmarshal(null, &nonPointer) is a
+// documented no-op — it returns a nil error and leaves the target at its
+// zero value — so without this check a caller-supplied `null` would
+// silently become a *valid* zero attribute (e.g. IntAttr(0)) instead of
+// being rejected, which was capable of flipping a real decision from DENY
+// to ALLOW (a request supplying `null` for a required numeric argument
+// evaluated identically to supplying 0). Found independently by code
+// review, QA/Security, and Frontend/UI during the G1 checkpoint; fixed
+// here as a wire-decoding correctness issue, not deferred to the
+// per-tool argument-declaration work tracked as O-006.
 func (a attributeWire) toDomain() decision.AttributeValue {
+	if len(a.Value) == 0 || string(a.Value) == "null" {
+		return decision.AttributeValue{}
+	}
 	switch a.Type {
 	case "string":
 		var s string
@@ -108,11 +123,21 @@ func (w evaluateRequestWire) toDomain() decision.Request {
 // names are stable after G1 freeze (AG-GO-G1-06) — changing any of them
 // requires the process in docs/PHASES/G1_WORKSTREAMS/00_G1_CHECKPOINT_REFERENCE.md's
 // "Freeze rule".
+//
+// All five fields are always emitted, including Message/PolicyVersion as
+// "" when empty — deliberately NOT `omitempty`. The frozen contract doc's
+// own worked examples always show all five keys present; `omitempty`
+// silently dropped "message" from every ALLOW response and "policy_version"
+// from every pre-Cedar denial, which three independent G1 workstreams
+// (Go Backend's own review, QA/Security, Frontend/UI) each separately
+// noticed as contract drift. A stable, fully-explicit shape is required so
+// downstream consumers can rely on "key present, possibly empty" rather
+// than "key present only sometimes."
 type resultWire struct {
 	Decision      string `json:"decision"`
 	Reason        string `json:"reason"`
-	Message       string `json:"message,omitempty"`
-	PolicyVersion string `json:"policy_version,omitempty"`
+	Message       string `json:"message"`
+	PolicyVersion string `json:"policy_version"`
 	ExecutionID   string `json:"execution_id"`
 }
 

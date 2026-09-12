@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -268,5 +269,123 @@ func TestHandler_DeterministicAcrossRequests(t *testing.T) {
 
 	if first != second {
 		t.Errorf("handler not deterministic for identical input: %+v vs %+v", first, second)
+	}
+}
+
+// --- G1 corrective-closeout regression tests -------------------------------
+//
+// The three tests below regression-test the fixes made after the G1 review
+// (docs/gitignored/diffs — Lead AI review items 1-3): JSON `null` for a
+// declared argument must be rejected as malformed for every supported
+// attribute type (not just int, where it was originally found), and
+// resultWire must always emit all five fields verbatim in the raw JSON
+// bytes, never relying on Go's struct-decode equivalence of "absent" and
+// "empty string".
+
+func TestHandler_NullArgument_RejectedForEveryAttributeType(t *testing.T) {
+	h := newTestHandler(t)
+
+	cases := map[string]string{
+		"int":    `{"amount":{"type":"int","value":null}}`,
+		"string": `{"amount":{"type":"string","value":null}}`,
+		"bool":   `{"amount":{"type":"bool","value":null}}`,
+	}
+
+	for name, argsJSON := range cases {
+		t.Run(name, func(t *testing.T) {
+			body := `{
+				"execution_id":"e-null","workspace_id":"w1",
+				"identity":{"agent_id":"a1","roles":["payer"]},
+				"tool":{"backend_id":"b","name":"transfer"},
+				"classification":{"known":true,"risk":"write"},
+				"arguments":` + argsJSON + `
+			}`
+
+			_, got := post(t, h, body)
+
+			if got.Decision != string(decision.Deny) {
+				t.Errorf("decision = %q, want DENY (a null argument must never become ALLOW)", got.Decision)
+			}
+			if got.Reason != string(decision.ReasonMalformedRequest) {
+				t.Errorf("reason = %q, want %q", got.Reason, decision.ReasonMalformedRequest)
+			}
+			if got.PolicyVersion != "" {
+				t.Errorf("policy_version = %q, want empty (Cedar must never be reached)", got.PolicyVersion)
+			}
+		})
+	}
+}
+
+func TestHandler_NullArgument_DiffersFromZeroValueAllow(t *testing.T) {
+	// Regression guard for the exact bug found: null must NOT be silently
+	// treated as if the caller had legitimately supplied 0/""/false.
+	h := newTestHandler(t)
+	base := `{
+		"execution_id":"e-cmp","workspace_id":"w1",
+		"identity":{"agent_id":"a1","roles":["payer"]},
+		"tool":{"backend_id":"b","name":"transfer"},
+		"classification":{"known":true,"risk":"write"},
+		"arguments":{"amount":{"type":"int","value":%s}}
+	}`
+
+	_, zero := post(t, h, fmt.Sprintf(base, "0"))
+	if zero.Decision != string(decision.Allow) {
+		t.Fatalf("baseline amount=0 decision = %q, want ALLOW (sanity check on the fixture rule)", zero.Decision)
+	}
+
+	_, null := post(t, h, fmt.Sprintf(base, "null"))
+	if null.Decision != string(decision.Deny) || null.Reason != string(decision.ReasonMalformedRequest) {
+		t.Errorf("amount=null: got decision=%q reason=%q, want DENY/%s (must not match amount=0's ALLOW)",
+			null.Decision, null.Reason, decision.ReasonMalformedRequest)
+	}
+}
+
+func TestHandler_ResultFieldsAlwaysPresentInRawJSON(t *testing.T) {
+	h := newTestHandler(t)
+
+	// ALLOW: Message is "" on the real path (no explicit message set).
+	allowBody := `{
+		"execution_id":"e-allow","workspace_id":"w1",
+		"identity":{"agent_id":"a1","roles":["reader"]},
+		"tool":{"backend_id":"b","name":"read_schedule"},
+		"classification":{"known":true,"risk":"read"}
+	}`
+	rawAllow := postRawBody(t, h, allowBody)
+	requireRawKeys(t, rawAllow, "decision", "reason", "message", "policy_version", "execution_id")
+
+	// A pre-Cedar denial: PolicyVersion is "" (Cedar never reached).
+	denyBody := `{
+		"execution_id":"e-deny","workspace_id":"w1",
+		"tool":{"backend_id":"b","name":"read_schedule"},
+		"classification":{"known":true,"risk":"read"}
+	}`
+	rawDeny := postRawBody(t, h, denyBody)
+	requireRawKeys(t, rawDeny, "decision", "reason", "message", "policy_version", "execution_id")
+}
+
+// postRawBody is like post, but returns the literal response bytes so a
+// test can assert on which JSON keys are actually present — a Go struct
+// decode cannot distinguish an omitted key from a present-but-empty one.
+func postRawBody(t *testing.T, h *Handler, body string) []byte {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/evaluate", bytes.NewBufferString(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	return rec.Body.Bytes()
+}
+
+func requireRawKeys(t *testing.T, raw []byte, keys ...string) {
+	t.Helper()
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatalf("response is not a JSON object: %v (body: %s)", err, raw)
+	}
+	for _, k := range keys {
+		if _, ok := m[k]; !ok {
+			t.Errorf("key %q missing from raw response %s, want it always present (even if empty)", k, raw)
+		}
 	}
 }

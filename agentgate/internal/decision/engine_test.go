@@ -170,6 +170,36 @@ func TestEvaluate_UnknownTool(t *testing.T) {
 	}
 }
 
+func TestEvaluate_KnownToolWithoutRiskIsMalformed(t *testing.T) {
+	e := mustEngine(t)
+	req := baseRequest()
+	req.Classification = ToolClassification{Known: true, Risk: ""}
+
+	got := e.Evaluate(req)
+
+	if got.Decision != Deny {
+		t.Errorf("Decision = %v, want %v", got.Decision, Deny)
+	}
+	if got.Reason != ReasonMalformedRequest {
+		t.Errorf("Reason = %v, want %v (risk is required when known is true)", got.Reason, ReasonMalformedRequest)
+	}
+	if got.PolicyVersion != "" {
+		t.Errorf("PolicyVersion = %q, want empty (Cedar must never be reached)", got.PolicyVersion)
+	}
+}
+
+func TestEvaluate_KnownToolWithBlankRiskIsMalformed(t *testing.T) {
+	e := mustEngine(t)
+	req := baseRequest()
+	req.Classification = ToolClassification{Known: true, Risk: "   "}
+
+	got := e.Evaluate(req)
+
+	if got.Decision != Deny || got.Reason != ReasonMalformedRequest {
+		t.Errorf("got Decision=%v Reason=%v, want Deny/%v", got.Decision, got.Reason, ReasonMalformedRequest)
+	}
+}
+
 func TestEvaluate_MalformedRequest(t *testing.T) {
 	tests := map[string]func(*Request){
 		"missing execution id": func(r *Request) { r.ExecutionID = "" },
