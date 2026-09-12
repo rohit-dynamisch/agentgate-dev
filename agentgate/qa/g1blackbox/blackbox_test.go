@@ -522,99 +522,107 @@ func TestNegative_WrongPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------
-// SECURITY FINDING — JSON `null` for a declared argument value.
+// REGRESSION — JSON `null` for a declared argument value is rejected as
+// malformed.
 //
 // The wire contract documents each argument as {"type": "string"|"int"|
-// "bool", "value": <matching JSON value>}. This test asks: what happens
-// when "value" is JSON `null` instead of a value matching the declared
-// type?
+// "bool", "value": <matching JSON value>}. This used to be a genuine
+// security finding (see docs/gitignored/diffs/04_QA_SECURITY_DIGEST.md,
+// "Security findings", and GO_BACKEND_G1_CONTRACT.md's "G1 corrective
+// closeout"): encoding/json's Unmarshal-into-non-pointer-scalar treats a
+// JSON `null` as a documented no-op, so a null value was silently accepted
+// as the target type's Go zero value (0 / "" / false) instead of being
+// rejected — for fixturepolicy's "payer" rule (risk=write, amount<=1000),
+// {"amount":{"type":"int","value":null}} evaluated identically to
+// {"amount":{"type":"int","value":0}} and was ALLOWed.
 //
-// Observed (see WS-D G1 evidence report, "Security findings"):
-// encoding/json's Unmarshal-into-non-pointer-scalar treats a JSON `null`
-// as a documented no-op — it neither errors nor sets the target, so the
-// target keeps its Go zero value (0 / "" / false). mockauthz's
-// attributeWire.toDomain() therefore returns a *valid* AttributeValue
-// (StringAttr("") / IntAttr(0) / BoolAttr(false)) for a null value,
-// instead of the zero-value AttributeValue{} that decision.Engine
-// treats as malformed. A null-valued declared argument is silently
-// accepted as the type's zero value, NOT rejected as malformed.
-//
-// This is security-relevant, not merely academic: fixturepolicy's
-// "payer" rule permits risk=write when context.amount <= 1000. Sending
-// {"amount": {"type": "int", "value": null}} evaluates identically to
-// sending {"amount": {"type": "int", "value": 0}} and is ALLOWed — even
-// though the caller supplied no genuine amount. A real per-tool argument
-// (e.g. a transfer amount, a record id) arriving as `null` should
-// arguably deny as malformed rather than silently participate in policy
-// evaluation as zero/empty/false.
-//
-// This test pins the CURRENTLY OBSERVED behavior (ALLOW) so it is
-// impossible to silently regress further, and to make the gap visible
-// to anyone running this suite — it does NOT assert this is the
-// correct/desired behavior. See the G1 evidence report for the
-// escalation.
+// Fixed upstream in mockauthz.attributeWire.toDomain() (checks for a
+// literal JSON `null` before the type switch, for all three attribute
+// types). These tests are now regression tests for the fix, not
+// documentation of the gap: they assert DENY/malformed_request for every
+// supported type, and that the request never reaches Cedar
+// (PolicyVersion == "").
 // ---------------------------------------------------------------------
 
-func TestSecurityFinding_JSONNullArgument_SilentlyBecomesZeroValue_Int(t *testing.T) {
-	hr := post(t, `{
-		"execution_id":"sec-null-1","workspace_id":"ws-1",
+func TestRegression_JSONNullArgument_RejectedAsMalformed(t *testing.T) {
+	cases := map[string]string{
+		"int":    `{"amount":{"type":"int","value":null}}`,
+		"string": `{"amount":{"type":"string","value":null}}`,
+		"bool":   `{"amount":{"type":"bool","value":null}}`,
+	}
+	for name, argsJSON := range cases {
+		t.Run(name, func(t *testing.T) {
+			hr := post(t, `{
+				"execution_id":"reg-null-`+name+`","workspace_id":"ws-1",
+				"identity":{"agent_id":"agent-1","roles":["payer"]},
+				"tool":{"backend_id":"backend-a","name":"transfer"},
+				"classification":{"known":true,"risk":"write"},
+				"arguments":`+argsJSON+`
+			}`)
+			assertDeny(t, hr, "malformed_request")
+			if hr.result.PolicyVersion != "" {
+				t.Errorf("policy_version = %q, want empty (Cedar must never be reached for a rejected null argument); body=%s",
+					hr.result.PolicyVersion, hr.body)
+			}
+		})
+	}
+}
+
+func TestRegression_JSONNullArgument_DiffersFromZeroValueAllow(t *testing.T) {
+	// Regression guard for the exact original bug: a null-valued argument
+	// must no longer produce the same outcome as an explicit zero value.
+	hrNull := post(t, `{
+		"execution_id":"reg-null-cmp-1","workspace_id":"ws-1",
 		"identity":{"agent_id":"agent-1","roles":["payer"]},
 		"tool":{"backend_id":"backend-a","name":"transfer"},
 		"classification":{"known":true,"risk":"write"},
 		"arguments":{"amount":{"type":"int","value":null}}
 	}`)
-	if hr.status != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body=%s", hr.status, hr.body)
-	}
-	if hr.result.Decision != "ALLOW" {
-		t.Fatalf("FINDING DID NOT REPRODUCE: expected the documented null-coercion gap (ALLOW because null -> 0 <= 1000), got decision=%q reason=%q — re-check the finding against current code; body=%s",
-			hr.result.Decision, hr.result.Reason, hr.body)
-	}
-	// Cross-check: an explicit amount=0 must produce the identical
-	// decision, proving null is being treated as the int zero value
-	// rather than "argument absent" or "argument invalid".
 	hrZero := post(t, `{
-		"execution_id":"sec-null-1z","workspace_id":"ws-1",
+		"execution_id":"reg-null-cmp-2","workspace_id":"ws-1",
 		"identity":{"agent_id":"agent-1","roles":["payer"]},
 		"tool":{"backend_id":"backend-a","name":"transfer"},
 		"classification":{"known":true,"risk":"write"},
 		"arguments":{"amount":{"type":"int","value":0}}
 	}`)
-	if hrZero.result.Decision != hr.result.Decision || hrZero.result.Reason != hr.result.Reason {
-		t.Errorf("null-valued amount (decision=%q reason=%q) does not match explicit amount=0 (decision=%q reason=%q) — the null-coercion hypothesis needs re-examination",
-			hr.result.Decision, hr.result.Reason, hrZero.result.Decision, hrZero.result.Reason)
+	if hrZero.result.Decision != "ALLOW" {
+		t.Fatalf("baseline amount=0 decision = %q, want ALLOW (sanity check on the fixture rule); body=%s", hrZero.result.Decision, hrZero.body)
+	}
+	assertDeny(t, hrNull, "malformed_request")
+	if hrNull.result.Decision == hrZero.result.Decision && hrNull.result.Reason == hrZero.result.Reason {
+		t.Errorf("amount=null (decision=%q reason=%q) still matches amount=0 (decision=%q reason=%q) — the null-coercion bug appears to have regressed",
+			hrNull.result.Decision, hrNull.result.Reason, hrZero.result.Decision, hrZero.result.Reason)
 	}
 }
 
-func TestSecurityFinding_JSONNullArgument_ChangesBrokenRoleOutcome(t *testing.T) {
-	// Omitting "amount" entirely on the "broken" role produces a genuine
-	// Cedar evaluation error (context.amount referenced with no `has`
-	// guard against a truly absent key). Sending amount:null instead
-	// changes the outcome: null is coerced to int 0, "context has
-	// amount" becomes true, and 0 > 10 is false, so the request falls
-	// through to deny-by-default instead of an evaluation error. Both
-	// paths still DENY today (this fixture rule's threshold happens to
-	// make it safe), but the underlying mechanism — null silently
-	// becoming a real, present zero value — is the same gap as the
-	// payer/amount case above, where the fixture's threshold does not
-	// save it.
+func TestRegression_JSONNullArgument_DistinctFromOmittedArgument(t *testing.T) {
+	// Omitting "amount" entirely on the "broken" role still produces a
+	// genuine Cedar evaluation error (context.amount referenced with no
+	// `has` guard against a truly absent key) — Cedar IS reached. Sending
+	// amount:null instead is now caught before Cedar (malformed_request,
+	// PolicyVersion empty) rather than being coerced into a present zero
+	// value that changes which Cedar rule fires. The two paths are
+	// expected to differ, and for a documented reason.
 	omitted := post(t, `{
-		"execution_id":"sec-null-2a","workspace_id":"ws-1",
+		"execution_id":"reg-null-broken-a","workspace_id":"ws-1",
 		"identity":{"agent_id":"agent-1","roles":["broken"]},
 		"tool":{"backend_id":"backend-a","name":"whatever"},
 		"classification":{"known":true,"risk":"write"}
 	}`)
 	nullValued := post(t, `{
-		"execution_id":"sec-null-2b","workspace_id":"ws-1",
+		"execution_id":"reg-null-broken-b","workspace_id":"ws-1",
 		"identity":{"agent_id":"agent-1","roles":["broken"]},
 		"tool":{"backend_id":"backend-a","name":"whatever"},
 		"classification":{"known":true,"risk":"write"},
 		"arguments":{"amount":{"type":"int","value":null}}
 	}`)
 	assertDeny(t, omitted, "evaluation_error")
-	assertDeny(t, nullValued, "no_matching_policy")
-	if omitted.result.Reason == nullValued.result.Reason {
-		t.Errorf("expected omitted-argument and null-valued-argument to reach DIFFERENT reason codes (demonstrating null is not treated as absent), both got %q", omitted.result.Reason)
+	if omitted.result.PolicyVersion == "" {
+		t.Errorf("omitted-argument case: policy_version is empty, want set (Cedar was reached and errored)")
+	}
+	assertDeny(t, nullValued, "malformed_request")
+	if nullValued.result.PolicyVersion != "" {
+		t.Errorf("null-valued-argument case: policy_version = %q, want empty (Cedar must never be reached)", nullValued.result.PolicyVersion)
 	}
 }
 
@@ -692,33 +700,26 @@ func TestContract_ExecutionIDPreservedOnEveryPath(t *testing.T) {
 	}
 }
 
-// TestContract_UndocumentedRequiredField_RiskWhenKnownTrue documents a
-// discrepancy between GO_BACKEND_G1_CONTRACT.md (which states
-// "Classification.Risk: Required when Known == true") and the ACTUAL
-// running behavior: omitting risk while known=true is NOT rejected as
-// malformed_request. It reaches Cedar with an empty risk attribute,
-// which (for the fixture policy) matches no rule and denies as
-// no_matching_policy. The outcome is still safely DENY, so this is a
-// documentation/semantic precision finding, not a security defect — but
-// per AG-QA-G1-03's DoD ("no undocumented required field or semantic is
-// discovered, or exactly what was found is documented"), it must be
-// recorded rather than silently ignored. See the G1 evidence report.
-func TestContract_RiskOmittedWhenKnownTrue_NotRejectedAsMalformed(t *testing.T) {
+// TestRegression_RiskRequiredWhenKnownTrue_RejectedAsMalformed regression-
+// tests a G1 corrective-closeout fix. GO_BACKEND_G1_CONTRACT.md documents
+// "Classification.Risk: Required when Known == true", but the engine
+// originally did not enforce this — an omitted/blank risk reached Cedar
+// with an empty risk attribute and denied as no_matching_policy instead
+// (never an accidental ALLOW, but an unenforced "required" field; see
+// docs/gitignored/diffs/04_QA_SECURITY_DIGEST.md, finding #2). Fixed
+// upstream in decision.Engine.Evaluate(), which now denies
+// malformed_request before Cedar is ever consulted when Known is true and
+// Risk is empty/blank.
+func TestRegression_RiskRequiredWhenKnownTrue_RejectedAsMalformed(t *testing.T) {
 	hr := post(t, `{
 		"execution_id":"c-risk-1","workspace_id":"ws-1",
 		"identity":{"agent_id":"agent-1","roles":["admin"]},
 		"tool":{"backend_id":"backend-a","name":"mystery_tool"},
 		"classification":{"known":true}
 	}`)
-	if hr.status != http.StatusOK {
-		t.Fatalf("status = %d, want 200", hr.status)
-	}
-	if hr.result.Decision != "DENY" {
-		t.Fatalf("SECURITY: omitted risk with known=true produced non-DENY: %+v", hr.result)
-	}
-	if hr.result.Reason != "no_matching_policy" {
-		t.Errorf("DOCUMENTATION MISMATCH: expected reason=no_matching_policy (empty risk reaches Cedar and matches nothing) per observed behavior, got %q — contract doc says risk is \"required\" but engine does not enforce it as malformed_request; update either the contract or this note if this changes",
-			hr.result.Reason)
+	assertDeny(t, hr, "malformed_request")
+	if hr.result.PolicyVersion != "" {
+		t.Errorf("policy_version = %q, want empty (Cedar must never be reached when risk is missing)", hr.result.PolicyVersion)
 	}
 }
 
