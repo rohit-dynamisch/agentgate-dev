@@ -107,7 +107,7 @@ flowchart TD
 - **O-003 (agentgateway conformance/security boundary):** Carried forward. Documented in `G2_GW_INSPECTION.md`.
 - **O-004 (Supported MCP revision(s)):** Carried forward.
 - **O-005 (Tool identity and schema fingerprint):** SHA-256 of canonical JSON (keys lexicographically sorted, no whitespace) is the current G2 implementation choice. This algorithm is NOT frozen as a final repository-wide normative decision.
-- **O-006 (Argument authorization model):** Effectively implemented in G2 via `internal/argdecl` (per-tool typed declaration registry). The Go Backend report recommends Lead Architect confirmation before formally closing. Carried forward pending that confirmation.
+- **O-006 (Argument authorization model):** **RESOLVED in G2.** Implemented via `internal/argdecl` (per-tool typed declaration registry). Lead Architect confirmed closure 2026-09-13. See `docs/DECISIONS/OPEN_DECISIONS.md` for full resolution record.
 - **O-007 (AgentGate execution identity):** Carried forward. `ExecutionID` field carried from G1 contract unchanged.
 - **O-008 (ext_authz transport mapping to decision.Request contract):** **EXPLICITLY OPEN.** Full handoff specification with sequence diagrams and wire contracts authored in `gateway/docs/G2_G6_HANDOFF.md`. No mock claims real E2E authorization until G6.
 
