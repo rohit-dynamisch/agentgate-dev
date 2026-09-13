@@ -1,0 +1,101 @@
+{
+  "_comment": "G2 Gateway/MCP — Tool Metadata Fixtures (G2-GW-04)",
+  "_note": "These are governance fixture cases for tool identity verification. They represent the authoritative governance state that internal/toolregistry.Registry would return for a given ToolID lookup. This is a FIXTURE BOUNDARY, not a second governance implementation.",
+  "_fingerprint_algorithm": "SHA-256 of canonical JSON (keys lexicographically sorted, no whitespace). Algorithm is NOT frozen as a repository decision (O-005). If O-005 resolves differently, these fingerprints must be recomputed.",
+  "_schema_note": "Canonical JSON used for fingerprinting: keys sorted alphabetically, no extra whitespace.",
+
+  "fixtures": [
+    {
+      "id": "known_read_tool",
+      "description": "Known, classified read-risk tool — governance PASS",
+      "backend_id": "backend-fixture",
+      "tool_name": "list_files",
+      "risk": "read",
+      "known": true,
+      "drift_status": "none",
+      "registered_fingerprint": "53582d9d7229826e75097ac478787ca403c94ce74e4611571be1b03c706952cc",
+      "canonical_schema_used": "{\"properties\":{\"path\":{\"type\":\"string\"}},\"type\":\"object\"}",
+      "original_schema": {"type": "object", "properties": {"path": {"type": "string"}}},
+      "governance_result": "authorized",
+      "expected_decision_context": {
+        "tool_backend_id": "backend-fixture",
+        "tool_name": "list_files",
+        "classification_known": true,
+        "classification_risk": "read"
+      }
+    },
+    {
+      "id": "known_write_tool",
+      "description": "Known, classified write-risk tool — governance PASS",
+      "backend_id": "backend-fixture",
+      "tool_name": "write_file",
+      "risk": "write",
+      "known": true,
+      "drift_status": "none",
+      "registered_fingerprint": "3d4598d9ee81d6c4936adef2071f052ad4b84b3eb9092c5e1c6d218c2e17ee82",
+      "canonical_schema_used": "{\"properties\":{\"content\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"}},\"type\":\"object\"}",
+      "original_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}},
+      "governance_result": "authorized",
+      "expected_decision_context": {
+        "tool_backend_id": "backend-fixture",
+        "tool_name": "write_file",
+        "classification_known": true,
+        "classification_risk": "write"
+      }
+    },
+    {
+      "id": "unknown_tool",
+      "description": "FAIL: tool not in registry — governance DENY (unknown_tool)",
+      "backend_id": "backend-fixture",
+      "tool_name": "unregistered_op",
+      "known": false,
+      "drift_status": "unknown_tool",
+      "registered_fingerprint": null,
+      "governance_result": "denied",
+      "fail_closed_reason": "unknown_tool",
+      "expected_decision_context": {
+        "classification_known": false
+      },
+      "note": "Unknown tools NEVER inherit classification from a same-named tool on another backend"
+    },
+    {
+      "id": "drifted_tool",
+      "description": "FAIL: tool schema changed since registration — governance DENY (drift_detected)",
+      "backend_id": "backend-fixture",
+      "tool_name": "list_files",
+      "risk": "read",
+      "known": true,
+      "drift_status": "detected",
+      "registered_fingerprint": "53582d9d7229826e75097ac478787ca403c94ce74e4611571be1b03c706952cc",
+      "live_fingerprint": "<different-value — schema has new field 'new_field'>",
+      "governance_result": "denied",
+      "fail_closed_reason": "schema_drift",
+      "note": "Drift cannot silently remain authorized. Tool must be re-reviewed before re-authorization."
+    },
+    {
+      "id": "same_name_different_backend",
+      "description": "FAIL: same tool name, different backend — must NOT inherit classification",
+      "backend_id": "attacker-backend",
+      "tool_name": "list_files",
+      "known": false,
+      "drift_status": "unknown_tool",
+      "registered_fingerprint": null,
+      "governance_result": "denied",
+      "fail_closed_reason": "unknown_tool",
+      "security_note": "attacker-backend/list_files is a DIFFERENT tool from backend-fixture/list_files. Classification NEVER crosses backend boundary."
+    },
+    {
+      "id": "missing_risk",
+      "description": "FAIL: tool is Known but risk field is empty — governance DENY (malformed_request)",
+      "backend_id": "backend-fixture",
+      "tool_name": "list_files",
+      "risk": "",
+      "known": true,
+      "drift_status": "none",
+      "registered_fingerprint": "53582d9d7229826e75097ac478787ca403c94ce74e4611571be1b03c706952cc",
+      "governance_result": "denied",
+      "fail_closed_reason": "missing_risk",
+      "note": "Known=true with empty Risk fails closed per decision.Engine validation"
+    }
+  ]
+}

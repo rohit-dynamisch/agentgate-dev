@@ -1,0 +1,132 @@
+{
+  "_comment": "G2 Gateway/MCP — Identity Claims Fixtures (G2-GW-02)",
+  "_note": "These are structural test fixtures for identity claim mapping. They are NOT proof of JWT validation. JWT signature verification is performed by agentgateway before these claims ever reach AgentGate's identity boundary. These fixtures model the pre-validated claim map that internal/identity.Mapper would receive.",
+  "_claim_key_note": "Claim names (sub, roles, obo) are deployment-specific per MapperConfig — not hardcoded. The keys here match the DefaultMapperConfig in internal/g2fixtures/fixtures.go.",
+
+  "fixtures": [
+    {
+      "id": "valid_minimal",
+      "description": "Minimal valid claims: agent_id + roles only, no delegate",
+      "trust_status": "gateway_validated",
+      "claims": {
+        "sub": "agent-fixture-001",
+        "roles": "reader"
+      },
+      "expected_mapping_result": "ok",
+      "expected_identity": {
+        "agent_id": "agent-fixture-001",
+        "on_behalf_of": "",
+        "roles": ["reader"]
+      }
+    },
+    {
+      "id": "valid_with_delegate",
+      "description": "Valid claims with delegated human identity (on_behalf_of)",
+      "trust_status": "gateway_validated",
+      "claims": {
+        "sub": "agent-fixture-001",
+        "roles": "reader",
+        "obo": "user-fixture-001"
+      },
+      "expected_mapping_result": "ok",
+      "expected_identity": {
+        "agent_id": "agent-fixture-001",
+        "on_behalf_of": "user-fixture-001",
+        "roles": ["reader"]
+      }
+    },
+    {
+      "id": "valid_multi_role",
+      "description": "Valid claims with multiple space-separated roles",
+      "trust_status": "gateway_validated",
+      "claims": {
+        "sub": "agent-fixture-002",
+        "roles": "reader admin"
+      },
+      "expected_mapping_result": "ok",
+      "expected_identity": {
+        "agent_id": "agent-fixture-002",
+        "on_behalf_of": "",
+        "roles": ["reader", "admin"]
+      }
+    },
+    {
+      "id": "missing_agent_id",
+      "description": "FAIL: sub claim absent entirely — ErrMissingClaim",
+      "trust_status": "gateway_validated",
+      "claims": {
+        "roles": "reader"
+      },
+      "expected_mapping_result": "error",
+      "expected_failure_class": "missing_claim",
+      "expected_identity": null,
+      "fail_closed_note": "Missing required claim fails closed — no identity is produced"
+    },
+    {
+      "id": "malformed_agent_id",
+      "description": "FAIL: sub claim present but blank — ErrMalformedClaim",
+      "trust_status": "gateway_validated",
+      "claims": {
+        "sub": "   ",
+        "roles": "reader"
+      },
+      "expected_mapping_result": "error",
+      "expected_failure_class": "malformed_claim",
+      "expected_identity": null,
+      "fail_closed_note": "Blank claim value fails closed — not treated as valid empty string"
+    },
+    {
+      "id": "empty_roles",
+      "description": "FAIL: roles claim blank — ErrMalformedClaim",
+      "trust_status": "gateway_validated",
+      "claims": {
+        "sub": "agent-fixture-001",
+        "roles": ""
+      },
+      "expected_mapping_result": "error",
+      "expected_failure_class": "malformed_claim",
+      "expected_identity": null,
+      "fail_closed_note": "Blank roles claim fails closed"
+    },
+    {
+      "id": "missing_roles_claim",
+      "description": "FAIL: roles claim absent — ErrMissingClaim",
+      "trust_status": "gateway_validated",
+      "claims": {
+        "sub": "agent-fixture-001"
+      },
+      "expected_mapping_result": "error",
+      "expected_failure_class": "missing_claim",
+      "expected_identity": null,
+      "fail_closed_note": "Missing required roles claim fails closed"
+    },
+    {
+      "id": "ambiguous_identity",
+      "description": "FAIL: on_behalf_of equals agent_id — ErrAmbiguousIdentity",
+      "trust_status": "gateway_validated",
+      "claims": {
+        "sub": "agent-fixture-001",
+        "roles": "reader",
+        "obo": "agent-fixture-001"
+      },
+      "expected_mapping_result": "error",
+      "expected_failure_class": "ambiguous_identity",
+      "expected_identity": null,
+      "fail_closed_note": "Self-delegation is ambiguous and fails closed"
+    },
+    {
+      "id": "malformed_on_behalf_of",
+      "description": "FAIL: obo claim present but blank — ErrMalformedClaim",
+      "trust_status": "gateway_validated",
+      "claims": {
+        "sub": "agent-fixture-001",
+        "roles": "reader",
+        "obo": "   "
+      },
+      "expected_mapping_result": "error",
+      "expected_failure_class": "malformed_claim",
+      "expected_identity": null,
+      "fail_closed_note": "Present-but-blank optional claim fails closed rather than being silently ignored"
+    }
+  ]
+}
