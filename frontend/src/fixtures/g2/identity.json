@@ -1,0 +1,69 @@
+{
+  "validMinimal": {
+    "agentIdClaim": "sub",
+    "rolesClaim": "roles",
+    "claims": {
+      "sub": "agent-fixture-001",
+      "roles": "reader"
+    },
+    "expectedStatus": "ok",
+    "expectedIdentity": {
+      "agentId": "agent-fixture-001",
+      "onBehalfOf": "",
+      "roles": ["reader"]
+    }
+  },
+  "validWithDelegate": {
+    "agentIdClaim": "sub",
+    "rolesClaim": "roles",
+    "onBehalfOfClaim": "obo",
+    "claims": {
+      "sub": "agent-fixture-001",
+      "roles": "reader",
+      "obo": "user-fixture-001"
+    },
+    "expectedStatus": "ok",
+    "expectedIdentity": {
+      "agentId": "agent-fixture-001",
+      "onBehalfOf": "user-fixture-001",
+      "roles": ["reader"]
+    }
+  },
+  "missingAgentId": {
+    "agentIdClaim": "sub",
+    "rolesClaim": "roles",
+    "claims": {
+      "roles": "reader"
+    },
+    "expectedStatus": "missing_claim"
+  },
+  "malformedAgentId": {
+    "agentIdClaim": "sub",
+    "rolesClaim": "roles",
+    "claims": {
+      "sub": "   ",
+      "roles": "reader"
+    },
+    "expectedStatus": "malformed_claim"
+  },
+  "ambiguousIdentity": {
+    "agentIdClaim": "sub",
+    "rolesClaim": "roles",
+    "onBehalfOfClaim": "obo",
+    "claims": {
+      "sub": "agent-fixture-001",
+      "roles": "reader",
+      "obo": "agent-fixture-001"
+    },
+    "expectedStatus": "ambiguous_identity"
+  },
+  "missingRoles": {
+    "agentIdClaim": "sub",
+    "rolesClaim": "roles",
+    "claims": {
+      "sub": "agent-fixture-001",
+      "roles": "  "
+    },
+    "expectedStatus": "malformed_claim"
+  }
+}

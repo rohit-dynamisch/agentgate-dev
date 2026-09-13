@@ -1,0 +1,63 @@
+{
+  "validReadTool": {
+    "toolId": {
+      "backendId": "backend-fixture",
+      "toolName": "list_files"
+    },
+    "known": true,
+    "risk": "read",
+    "registeredFingerprint": "53582d9d7229826e75097ac478787ca403c94ce74e4611571be1b03c706952cc",
+    "driftStatus": "none",
+    "expectedDerivedState": "authorized"
+  },
+  "validWriteTool": {
+    "toolId": {
+      "backendId": "backend-fixture",
+      "toolName": "write_file"
+    },
+    "known": true,
+    "risk": "write",
+    "registeredFingerprint": "3d4598d9ee81d6c4936adef2071f052ad4b84b3eb9092c5e1c6d218c2e17ee82",
+    "driftStatus": "none",
+    "expectedDerivedState": "authorized"
+  },
+  "unknownTool": {
+    "toolId": {
+      "backendId": "backend-fixture",
+      "toolName": "unregistered_op"
+    },
+    "known": false,
+    "driftStatus": "unknown_tool",
+    "expectedDerivedState": "unknown"
+  },
+  "schemaDriftTool": {
+    "toolId": {
+      "backendId": "backend-fixture",
+      "toolName": "list_files"
+    },
+    "known": true,
+    "risk": "read",
+    "registeredFingerprint": "53582d9d7229826e75097ac478787ca403c94ce74e4611571be1b03c706952cc",
+    "driftStatus": "detected",
+    "expectedDerivedState": "drifted"
+  },
+  "sameNameDifferentBackend": {
+    "toolId": {
+      "backendId": "attacker-backend",
+      "toolName": "list_files"
+    },
+    "known": false,
+    "driftStatus": "unknown_tool",
+    "expectedDerivedState": "unknown"
+  },
+  "missingRiskTool": {
+    "toolId": {
+      "backendId": "backend-fixture",
+      "toolName": "list_files"
+    },
+    "known": true,
+    "driftStatus": "none",
+    "registeredFingerprint": "53582d9d7229826e75097ac478787ca403c94ce74e4611571be1b03c706952cc",
+    "expectedDerivedState": "missing_risk"
+  }
+}

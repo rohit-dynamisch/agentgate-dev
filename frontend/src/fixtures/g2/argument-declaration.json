@@ -1,0 +1,42 @@
+{
+  "validDeclarations": [
+    { "name": "path", "type": "string", "required": true },
+    { "name": "count", "type": "int64", "required": false },
+    { "name": "recursive", "type": "bool", "required": false }
+  ],
+  "validArgsComplete": {
+    "path": "/var/log/app.log",
+    "count": 10,
+    "recursive": true
+  },
+  "validArgsMissingOptional": {
+    "path": "/var/log/app.log"
+  },
+  "missingRequired": {
+    "count": 10
+  },
+  "explicitNullRequired": {
+    "path": null,
+    "count": 10
+  },
+  "explicitNullOptional": {
+    "path": "/var/log/app.log",
+    "count": null
+  },
+  "typeMismatchString": {
+    "path": 12345
+  },
+  "typeMismatchInt": {
+    "path": "/var/log/app.log",
+    "count": "not-a-number"
+  },
+  "typeMismatchBool": {
+    "path": "/var/log/app.log",
+    "recursive": "yes"
+  },
+  "undeclaredArgs": {
+    "path": "/var/log/app.log",
+    "extraParam": "should_be_ignored",
+    "secretToken": "ignore_me"
+  }
+}
