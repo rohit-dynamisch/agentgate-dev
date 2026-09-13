@@ -45,7 +45,7 @@ describe("Frontend G3 Governance API Client & Models", () => {
     // Verify state in list
     const listAfterAct1 = await client.listPolicies(ws);
     expect(listAfterAct1).toHaveLength(1);
-    expect(listAfterAct1[0].state).toBe("active");
+    expect(listAfterAct1[0]?.state).toBe("active");
 
     // 6. Create second candidate and activate
     const c2 = await client.createCandidate(ws, g3Fixtures.validPolicy2, "v2 forbid");
@@ -57,6 +57,8 @@ describe("Frontend G3 Governance API Client & Models", () => {
     const listAfterAct2 = await client.listPolicies(ws);
     const p1 = listAfterAct2.find((p) => p.version === c1.version);
     const p2 = listAfterAct2.find((p) => p.version === c2.version);
+    expect(p1).toBeDefined();
+    expect(p2).toBeDefined();
     expect(p1?.state).toBe("historical");
     expect(p2?.state).toBe("active");
 
@@ -86,43 +88,49 @@ describe("Frontend G3 Governance API Client & Models", () => {
     let capturedMethod = "";
     let capturedUrl = "";
 
-    const mockFetch = async (url: string | URL | Request, init?: RequestInit) => {
-      capturedUrl = url.toString();
+    const mockFetch = async (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => {
+      capturedUrl = url;
       capturedMethod = init?.method || "GET";
-      capturedHeaders = (init?.headers as Record<string, string>) || {};
+      capturedHeaders = init?.headers || {};
 
       if (capturedUrl.endsWith("/policies") && capturedMethod === "GET") {
-        return new Response(
-          JSON.stringify({
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
             workspace_id: "ws-test",
             policies: [
               {
                 workspace_id: "ws-test",
                 version: "hash-123",
                 content: "permit(principal, action, resource);",
-                state: "active",
+                state: "active" as const,
                 description: "Test",
                 created_at: "2026-09-13T10:00:00Z",
               },
             ],
           }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        );
+        };
       }
 
-      if (capturedUrl.includes("rollback") && init?.body?.toString().includes("bad-hash")) {
-        return new Response(
-          JSON.stringify({
+      if (capturedUrl.includes("rollback") && init?.body?.includes("bad-hash")) {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({
             error: {
               code: "NOT_FOUND",
               message: "target policy version not found",
             },
           }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
+        };
       }
 
-      return new Response("{}", { status: 200 });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      };
     };
 
     const client = new HttpGovernanceClient("http://localhost:8090", "test-admin-token", mockFetch as any);
@@ -132,7 +140,7 @@ describe("Frontend G3 Governance API Client & Models", () => {
     expect(capturedMethod).toBe("GET");
     expect(capturedHeaders["Authorization"]).toBe("Bearer test-admin-token");
     expect(list).toHaveLength(1);
-    expect(list[0].version).toBe("hash-123");
+    expect(list[0]?.version).toBe("hash-123");
 
     // Test error mapping
     await expect(client.rollbackPolicy("ws-test", "bad-hash")).rejects.toThrow(GovernanceApiError);

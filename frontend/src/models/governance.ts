@@ -1,26 +1,26 @@
 export type PolicyState = "candidate" | "active" | "historical";
 
 export interface PolicyRecord {
-  id?: number;
+  id?: number | undefined;
   workspace_id: string;
   version: string;
   content: string;
   state: PolicyState;
   description: string;
   created_at: string;
-  activated_at?: string;
+  activated_at?: string | undefined;
 }
 
 export interface ValidateResponse {
   valid: boolean;
-  version?: string;
-  errors?: string[];
+  version?: string | undefined;
+  errors?: string[] | undefined;
 }
 
 export interface ActivateResponse {
   workspace_id: string;
   active_version: string;
-  previous_version?: string;
+  previous_version?: string | undefined;
   activated_at: string;
 }
 

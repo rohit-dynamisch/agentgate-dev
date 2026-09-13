@@ -149,22 +149,40 @@ export class MockGovernanceClient implements GovernanceClient {
   }
 }
 
+export interface FetchRequestOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+export interface FetchResponse {
+  ok: boolean;
+  status: number;
+  json(): Promise<any>;
+}
+
+export type FetchFunction = (url: string, options?: FetchRequestOptions) => Promise<FetchResponse>;
+
 export class HttpGovernanceClient implements GovernanceClient {
   private baseUrl: string;
   private adminToken: string;
-  private fetchFn: typeof fetch;
+  private fetchFn: FetchFunction;
 
-  constructor(baseUrl: string, adminToken: string, fetchFn: typeof fetch = fetch) {
+  constructor(
+    baseUrl: string,
+    adminToken: string,
+    fetchFn: FetchFunction = (globalThis as any).fetch
+  ) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.adminToken = adminToken;
     this.fetchFn = fetchFn;
   }
 
-  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(path: string, options: FetchRequestOptions = {}): Promise<T> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.adminToken}`,
       "Content-Type": "application/json",
-      ...(options.headers as Record<string, string> || {}),
+      ...(options.headers || {}),
     };
 
     const resp = await this.fetchFn(`${this.baseUrl}${path}`, {
