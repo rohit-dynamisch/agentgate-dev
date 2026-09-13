@@ -15,8 +15,11 @@ import (
 	"syscall"
 
 	"github.com/Dynamisch-LLC/agentgate/internal/config"
+	"github.com/Dynamisch-LLC/agentgate/internal/govapi"
 	"github.com/Dynamisch-LLC/agentgate/internal/httpserver"
 	"github.com/Dynamisch-LLC/agentgate/internal/logging"
+	"github.com/Dynamisch-LLC/agentgate/internal/policymanager"
+	"github.com/Dynamisch-LLC/agentgate/internal/policystore"
 )
 
 func main() {
@@ -39,6 +42,31 @@ func run() error {
 	)
 
 	srv := httpserver.New(cfg.HTTPAddr, logger)
+
+	var store policystore.Store
+	if cfg.DatabaseURL != "" {
+		pgStore, err := policystore.NewPostgresStore(context.Background(), cfg.DatabaseURL)
+		if err != nil {
+			return fmt.Errorf("connect postgres: %w", err)
+		}
+		defer pgStore.Close()
+
+		if err := pgStore.Migrate(context.Background()); err != nil {
+			return fmt.Errorf("migrate postgres: %w", err)
+		}
+		store = pgStore
+		srv.SetReadinessCheck(pgStore.Ping)
+		logger.Info("connected to persistent postgres policy store")
+	} else {
+		store = policystore.NewMemoryStore()
+		defer store.Close()
+		logger.Info("using in-memory policy store")
+	}
+
+	policyMgr := policymanager.New(store)
+	govHandler := govapi.NewHandler(policyMgr, cfg.AdminToken)
+	govHandler.RegisterRoutes(srv.Mux())
+
 	if err := srv.Start(); err != nil {
 		return fmt.Errorf("start http server: %w", err)
 	}

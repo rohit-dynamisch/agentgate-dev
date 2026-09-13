@@ -18,24 +18,40 @@ import (
 
 // Server serves AgentGate's HTTP endpoints.
 type Server struct {
-	addr   string
-	logger *slog.Logger
-	srv    *http.Server
-	ln     net.Listener
-	ready  atomic.Bool
+	addr           string
+	logger         *slog.Logger
+	srv            *http.Server
+	ln             net.Listener
+	mux            *http.ServeMux
+	ready          atomic.Bool
+	readinessCheck func(context.Context) error
 }
 
 // New constructs a Server bound to addr. It does not open a listener until
 // Start is called.
 func New(addr string, logger *slog.Logger) *Server {
-	s := &Server{addr: addr, logger: logger}
-
 	mux := http.NewServeMux()
+	s := &Server{
+		addr:   addr,
+		logger: logger,
+		mux:    mux,
+		srv:    &http.Server{Handler: mux},
+	}
+
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/readyz", s.handleReadyz)
 
-	s.srv = &http.Server{Handler: mux}
 	return s
+}
+
+// Mux returns the server's HTTP ServeMux to register additional routes.
+func (s *Server) Mux() *http.ServeMux {
+	return s.mux
+}
+
+// SetReadinessCheck sets an optional check (e.g. DB ping) for the /readyz endpoint.
+func (s *Server) SetReadinessCheck(check func(context.Context) error) {
+	s.readinessCheck = check
 }
 
 // Start binds the listener and begins serving in the background. It
@@ -82,16 +98,23 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte("ok"))
 }
 
-func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	// Readiness: the server has bound its listener and has not begun
-	// shutting down. This scaffold has no dependency (DB, policy store,
-	// ...) to check yet — later tasks extend this as those dependencies
-	// are introduced.
+	// shutting down. Checks dependent health (such as PostgreSQL) if configured.
 	if !s.ready.Load() {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte("not ready"))
 		return
 	}
+
+	if s.readinessCheck != nil {
+		if err := s.readinessCheck(r.Context()); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("dependency not ready: " + err.Error()))
+			return
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ready"))
 }
