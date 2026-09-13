@@ -2,6 +2,7 @@ package httpserver_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"testing"
@@ -70,7 +71,51 @@ func TestServerUnreachableAfterShutdown(t *testing.T) {
 
 func TestAddrEmptyBeforeStart(t *testing.T) {
 	s := httpserver.New("127.0.0.1:0", newTestLogger())
-	if got := s.Addr(); got != "" {
-		t.Errorf("Addr() before Start() = %q, want empty string", got)
+	if addr := s.Addr(); addr != "" {
+		t.Errorf("Addr() before Start() = %q, want empty", addr)
+	}
+}
+
+func TestServerReadinessCheckWithDependency(t *testing.T) {
+	s := httpserver.New("127.0.0.1:0", newTestLogger())
+
+	var depHealthy bool
+	s.SetReadinessCheck(func(ctx context.Context) error {
+		if !depHealthy {
+			return errors.New("db disconnected")
+		}
+		return nil
+	})
+
+	if err := s.Start(); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = s.Shutdown(ctx)
+	})
+
+	base := "http://" + s.Addr()
+
+	// 1. Dependency unhealthy -> 503
+	resp, err := http.Get(base + "/readyz")
+	if err != nil {
+		t.Fatalf("GET /readyz: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("expected 503 when dependency unhealthy, got %d", resp.StatusCode)
+	}
+
+	// 2. Dependency healthy -> 200
+	depHealthy = true
+	resp2, err := http.Get(base + "/readyz")
+	if err != nil {
+		t.Fatalf("GET /readyz: %v", err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 when dependency healthy, got %d", resp2.StatusCode)
 	}
 }
