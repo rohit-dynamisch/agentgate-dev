@@ -1,14 +1,14 @@
 # G2 Closure Summary — Identity Mapping, Tool Registry & Typed Invocations
 
 **Checkpoint status:** PASS / CLOSED  
-**Date:** 2026-09-13  
+**Date:** 2026-09-13 (corrective closeout applied 2026-09-13)  
 **Branch:** `development`  
 
 ---
 
 ## 1. What Shipped
 
-Checkpoint G2 extends AgentGate from G1's static decision core into a production-grade context assembly engine. In G1, requests arrived with pre-formed `Identity`, `Classification`, and `Arguments`. G2 establishes the authoritative pipelines that construct those inputs from real external signals, fail closed on any ambiguity or drift, and guarantee that unclassified tools, undeclared arguments, or unverified claims can never reach policy evaluation.
+Checkpoint G2 extends AgentGate from G1's static decision core into a production-oriented context assembly boundary. In G1, requests arrived with pre-formed `Identity`, `Classification`, and `Arguments`. G2 establishes the authoritative pipelines that construct those inputs from real external signals, fail closed on any ambiguity or drift, and guarantee that unclassified tools, undeclared arguments, or unverified claims can never reach policy evaluation. **Note:** G2 components are independently implemented and tested; full production E2E integration through the actual ext_authz data path remains pending until G6 (O-008).
 
 Five workstreams converged on the G2 checkpoint without contract drift or permissive defaults:
 
@@ -103,13 +103,13 @@ flowchart TD
 
 ## 4. Open Decisions Status
 
-- **O-001 (Downstream Token Propagation):** Carried forward. G2 only models inbound claim mapping; downstream propagation is deferred to proxy layer or G6.
-- **O-003 (Body Buffering in agentgateway):** Carried forward. Documented in `G2_GW_INSPECTION.md`.
-- **O-004 (Cedar Schema Compile-Time vs Startup):** Carried forward.
-- **O-005 (Schema Fingerprint Algorithm):** SHA-256 of canonical JSON (keys lexicographically sorted, no whitespace) is used across G2. Explicitly documented that this algorithm is NOT frozen as a final repository decision.
-- **O-006 (Audit Storage Schema & PGX Pool):** Carried forward to G3 (Persistence & Audit Engine).
-- **O-007 (agentgateway Distribution):** Carried forward.
-- **O-008 (agentgateway ext_authz Body Payload Mechanism):** **EXPLICITLY OPEN.** Full handoff specification with sequence diagrams and wire contracts authored in `gateway/docs/G2_G6_HANDOFF.md`. No mock claims real E2E authorization until G6.
+- **O-001 (Downstream identity/credential propagation):** Carried forward. G2 only models inbound claim mapping; downstream propagation is deferred to proxy layer or G6.
+- **O-003 (agentgateway conformance/security boundary):** Carried forward. Documented in `G2_GW_INSPECTION.md`.
+- **O-004 (Supported MCP revision(s)):** Carried forward.
+- **O-005 (Tool identity and schema fingerprint):** SHA-256 of canonical JSON (keys lexicographically sorted, no whitespace) is the current G2 implementation choice. This algorithm is NOT frozen as a final repository-wide normative decision.
+- **O-006 (Argument authorization model):** Effectively implemented in G2 via `internal/argdecl` (per-tool typed declaration registry). The Go Backend report recommends Lead Architect confirmation before formally closing. Carried forward pending that confirmation.
+- **O-007 (AgentGate execution identity):** Carried forward. `ExecutionID` field carried from G1 contract unchanged.
+- **O-008 (ext_authz transport mapping to decision.Request contract):** **EXPLICITLY OPEN.** Full handoff specification with sequence diagrams and wire contracts authored in `gateway/docs/G2_G6_HANDOFF.md`. No mock claims real E2E authorization until G6.
 
 ---
 
