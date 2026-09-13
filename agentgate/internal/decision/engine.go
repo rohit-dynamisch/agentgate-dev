@@ -27,6 +27,12 @@ func NewEngine(policyBytes []byte) (*Engine, error) {
 	return &Engine{policy: pe}, nil
 }
 
+// NewEngineWithPolicy constructs an Engine wrapping an already-loaded, validated
+// policy.Engine (e.g. from internal/policymanager).
+func NewEngineWithPolicy(pe *policy.Engine) *Engine {
+	return &Engine{policy: pe}
+}
+
 // NewEngineWithoutPolicy constructs an Engine with no policy loaded. Every
 // request against it denies with ReasonNoPolicyLoaded — the explicit
 // representation of "startup with no valid policy must not authorize
