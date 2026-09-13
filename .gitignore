@@ -1,4 +1,5 @@
 docs/prompts
+docs/superpowers
 
 # Ephemeral, per-checkpoint handoff artifacts (reports + digests for the
 # human<->Lead-Architect loop) — never permanent, never code-referenced.
@@ -21,3 +22,6 @@ npm-debug.log*
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# IDE / local agent junctions
+.agents/
