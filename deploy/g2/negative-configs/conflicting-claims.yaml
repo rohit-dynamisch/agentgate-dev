@@ -1,0 +1,6 @@
+# Negative config: agent_id_claim conflicts with on_behalf_of_claim
+# Expected behavior: configuration validation MUST fail closed.
+identity_mapping:
+  agent_id_claim: "sub"
+  roles_claim: "roles"
+  on_behalf_of_claim: "sub"

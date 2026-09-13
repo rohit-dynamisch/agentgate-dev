@@ -1,0 +1,62 @@
+# deploy/g2/docker-compose.yml — G2 Contract Testing & Validation Topology (G2-DO-05)
+#
+# STATUS: Reviewable target topology for G2 cross-workstream contract testing.
+# NOTE: Does NOT claim production E2E authorization while O-008 remains open.
+#
+# Topology:
+#   [Client/QA Probe] ---> [agentgateway (ext_authz stub)] ---> [AgentGate Core]
+#                                                                     |
+#                                                     [Governance Fixtures & Registry]
+
+services:
+  agentgate:
+    build:
+      context: ../..
+      dockerfile: deploy/g2/Dockerfile.agentgate
+    image: agentgate/agentgate:g2
+    container_name: g2-agentgate
+    ports:
+      - "8090:8090"
+    environment:
+      AGENTGATE_HTTP_ADDR: ":8090"
+      AGENTGATE_ENV: "development"
+      AGENTGATE_LOG_LEVEL: "debug"
+    volumes:
+      - ./identity-mapping.yaml:/etc/agentgate/identity-mapping.yaml:ro
+      - ./governance-fixtures.yaml:/etc/agentgate/governance-fixtures.yaml:ro
+    networks:
+      - g2net
+
+  # Upstream Gateway placeholder (stands in for agentgateway integration in G6)
+  # Profile gated: requires pinned agentgateway binary/image when available.
+  agentgateway:
+    image: agentgate/g2-agentgateway-stub-NOT-PROVIDED
+    container_name: g2-agentgateway
+    profiles: ["gateway-stub-unavailable"]
+    ports:
+      - "3000:3000"   # MCP endpoint
+      - "15000:15000" # admin UI
+    environment:
+      AGENTGATEWAY_EXT_AUTHZ_TARGET: "agentgate:8090"
+    depends_on:
+      - agentgate
+    networks:
+      - g2net
+
+  # QA test runner / probe service
+  qa-probe:
+    image: golang:1.24
+    container_name: g2-qa-probe
+    profiles: ["qa-manual"]
+    working_dir: /src/agentgate
+    volumes:
+      - ../..:/src:ro
+    command: ["go", "test", "-v", "./qa/..."]
+    depends_on:
+      - agentgate
+    networks:
+      - g2net
+
+networks:
+  g2net:
+    driver: bridge
