@@ -93,11 +93,16 @@ Execute the full G4 lifecycle proof sequence against the running instance:
 docker compose -f deploy/g4/docker-compose.yml down -v
 ```
 
-## Configuration Variables
+## Configuration & Credential Management
 
-| Variable | Default | Description |
+| Variable | Development Default | Description |
 |---|---|---|
 | `AGENTGATE_HTTP_ADDR` | `:8090` | HTTP listen address for API and health endpoints |
-| `AGENTGATE_DATABASE_URL` | `""` | PostgreSQL connection string |
-| `AGENTGATE_ADMIN_TOKEN` | `agentgate-admin-secret-dev` | Shared secret for administrator governance mutations |
+| `AGENTGATE_DATABASE_URL` | `postgres://agentgate:agentgate-dev-password@postgres:5432/agentgate_db?sslmode=disable` | PostgreSQL connection string |
+| `AGENTGATE_ADMIN_TOKEN` | `agentgate-admin-secret-dev` (Test fixture only) | Secret token for administrator governance mutations |
 | `AGENTGATE_LOG_LEVEL` | `debug` | Minimum log severity (`debug`, `info`, `warn`, `error`) |
+
+### Security Boundary Note
+- The default `agentgate-admin-secret-dev` token is strictly a **non-secret development/testing fixture** for isolated local runs and CI integration harnesses.
+- Sensitive environment variables (`AGENTGATE_ADMIN_TOKEN`, `AGENTGATE_DATABASE_URL`) are interpolated dynamically (`${VARIABLE:-default}`) from the host environment if defined.
+- **Production Invariant**: Production environments must inject credentials securely via dedicated secret stores (e.g. Kubernetes Secrets, AWS Secrets Manager, Vault) and must **never** inherit or use hardcoded development defaults.
