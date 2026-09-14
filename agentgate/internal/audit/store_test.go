@@ -212,3 +212,35 @@ func TestMemoryStore_FaultInjection(t *testing.T) {
 		t.Fatalf("expected injected fault error, got %v", err)
 	}
 }
+
+func TestAuditedDecisionService_OnMutation(t *testing.T) {
+	aStore := audit.NewMemoryStore()
+	redactor := audit.NewRedactor("salt", nil)
+	auditSvc := audit.NewAuditedDecisionService(nil, aStore, redactor)
+
+	ctx := context.Background()
+	ws := "ws-audit-mut"
+
+	ev := auditevents.MutationEvent{
+		WorkspaceID:     ws,
+		Action:          auditevents.ActionActivate,
+		PreviousVersion: "v1",
+		NewVersion:      "v2",
+		CorrelationID:   "corr-99",
+		Timestamp:       time.Now().UTC(),
+		OperatorID:      "test-operator",
+	}
+
+	auditSvc.OnMutation(ctx, ev)
+
+	latest, err := aStore.GetLatestRecord(ctx, ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latest.EventType != audit.EventTypeMutation {
+		t.Fatalf("expected mutation event, got %s", latest.EventType)
+	}
+	if latest.PolicyVersion != "v2" {
+		t.Fatalf("expected v2, got %s", latest.PolicyVersion)
+	}
+}
