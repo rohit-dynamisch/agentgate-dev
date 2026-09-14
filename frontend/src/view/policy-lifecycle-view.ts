@@ -1,4 +1,9 @@
-import { PolicyRecord, PolicyState, ValidateResponse } from "../models/governance.js";
+import {
+  DryRunCompareResult,
+  PolicyRecord,
+  PolicyState,
+  ValidateResponse,
+} from "../models/governance.js";
 
 export type BadgeTone = "active" | "candidate" | "historical";
 
@@ -64,3 +69,46 @@ export function toValidationDisplayView(result: ValidateResponse): ValidationDis
     errorMessages: result.errors || ["Unknown syntax error"],
   };
 }
+
+export interface DryRunComparisonView {
+  changed: boolean;
+  headline: string;
+  tone: "changed" | "unchanged";
+  activeOutcome: string;
+  candidateOutcome: string;
+}
+
+export function toDryRunComparisonView(result: DryRunCompareResult): DryRunComparisonView {
+  const changed = result.changed;
+  return {
+    changed,
+    headline: changed
+      ? `Outcome Changed: ${result.active_decision} → ${result.candidate_decision}`
+      : `Outcome Unchanged: ${result.active_decision}`,
+    tone: changed ? "changed" : "unchanged",
+    activeOutcome: `${result.active_decision} (${result.active_reason}) [${result.active_policy_version || "none"}]`,
+    candidateOutcome: `${result.candidate_decision} (${result.candidate_reason}) [${result.candidate_policy_version}]`,
+  };
+}
+
+export interface OperationStatusView {
+  status: string;
+  tone: "idle" | "pending" | "success" | "error";
+  label: string;
+}
+
+export function toOperationStatusView(status: string): OperationStatusView {
+  switch (status) {
+    case "activating":
+    case "rolling_back":
+      return { status, tone: "pending", label: "In Progress..." };
+    case "confirmed":
+      return { status, tone: "success", label: "Confirmed" };
+    case "error":
+      return { status, tone: "error", label: "Failed" };
+    case "idle":
+    default:
+      return { status, tone: "idle", label: "Idle" };
+  }
+}
+

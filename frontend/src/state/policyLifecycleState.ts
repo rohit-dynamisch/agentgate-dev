@@ -1,7 +1,10 @@
 import { GovernanceClient } from "../api/governanceClient.js";
 import {
   ActivateResponse,
+  DryRunCompareResponse,
+  DryRunSample,
   PolicyRecord,
+  PreviewSample,
   RollbackResponse,
   ValidateResponse,
 } from "../models/governance.js";
@@ -12,6 +15,8 @@ export interface PolicyLifecycleState {
   activeVersion?: string | undefined;
   validation?: ValidateResponse | undefined;
   activationStatus: "idle" | "activating" | "confirmed" | "error";
+  rollbackStatus: "idle" | "rolling_back" | "confirmed" | "error";
+  dryRunResult?: DryRunCompareResponse | undefined;
   lastError?: string | undefined;
 }
 
@@ -25,6 +30,7 @@ export class PolicyLifecycleStore {
       workspaceId,
       policies: [],
       activationStatus: "idle",
+      rollbackStatus: "idle",
     };
   }
 
@@ -86,13 +92,30 @@ export class PolicyLifecycleStore {
     }
   }
 
+  async dryRunCompare(
+    version: string,
+    sampleRequests: (PreviewSample | DryRunSample)[]
+  ): Promise<DryRunCompareResponse> {
+    try {
+      const resp = await this.client.dryRunCompare(this.state.workspaceId, version, sampleRequests);
+      this.state.dryRunResult = resp;
+      return resp;
+    } catch (err: any) {
+      this.state.lastError = err.message || "dry-run comparison failed";
+      throw err;
+    }
+  }
+
   async rollback(targetVersion: string): Promise<RollbackResponse> {
+    this.state.rollbackStatus = "rolling_back";
     try {
       const resp = await this.client.rollbackPolicy(this.state.workspaceId, targetVersion);
       this.state.activeVersion = resp.active_version;
+      this.state.rollbackStatus = "confirmed";
       await this.loadPolicies();
       return resp;
     } catch (err: any) {
+      this.state.rollbackStatus = "error";
       this.state.lastError = err.message || "rollback failed";
       throw err;
     }
