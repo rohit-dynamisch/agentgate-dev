@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/Dynamisch-LLC/agentgate/internal/auditevents"
 	"github.com/Dynamisch-LLC/agentgate/internal/policy"
 	"github.com/Dynamisch-LLC/agentgate/internal/policystore"
 )
@@ -21,17 +23,25 @@ var (
 // Manager coordinates the lifecycle, validation, atomic activation, rollback,
 // and concurrency-safe in-memory caching of active policy engines.
 type Manager struct {
-	store policystore.Store
+	store    policystore.Store
+	listener auditevents.MutationListener
 
 	mu      sync.RWMutex
 	engines map[string]*policy.Engine // workspaceID -> loaded active Cedar engine
 }
 
-// New constructs a new Manager backed by store.
+// New constructs a new Manager backed by store with a no-op mutation listener.
 func New(store policystore.Store) *Manager {
+	return NewWithListener(store, auditevents.NewNoopListener())
+}
+
+// NewWithListener constructs a Manager with an explicit mutation listener.
+// G4 uses this to hook audit events; G5 will provide the durable listener.
+func NewWithListener(store policystore.Store, listener auditevents.MutationListener) *Manager {
 	return &Manager{
-		store:   store,
-		engines: make(map[string]*policy.Engine),
+		store:    store,
+		listener: listener,
+		engines:  make(map[string]*policy.Engine),
 	}
 }
 
@@ -73,6 +83,13 @@ func (m *Manager) CreateCandidate(ctx context.Context, workspaceID, content, des
 		return policystore.PolicyRecord{}, fmt.Errorf("policymanager: persist candidate: %w", err)
 	}
 
+	m.listener.OnMutation(ctx, auditevents.MutationEvent{
+		WorkspaceID: workspaceID,
+		Action:      auditevents.ActionCreateCandidate,
+		NewVersion:  version,
+		Timestamp:   time.Now(),
+	})
+
 	return rec, nil
 }
 
@@ -90,7 +107,8 @@ func (m *Manager) Activate(ctx context.Context, workspaceID, version string) (po
 		return policystore.PolicyRecord{}, fmt.Errorf("%w: %v", ErrInvalidPolicy, err)
 	}
 
-	if _, err := m.store.ActivatePolicy(ctx, workspaceID, version); err != nil {
+	prevVersion, err := m.store.ActivatePolicy(ctx, workspaceID, version)
+	if err != nil {
 		return policystore.PolicyRecord{}, fmt.Errorf("policymanager: activate in store: %w", err)
 	}
 
@@ -98,6 +116,14 @@ func (m *Manager) Activate(ctx context.Context, workspaceID, version string) (po
 	m.mu.Lock()
 	m.engines[workspaceID] = eng
 	m.mu.Unlock()
+
+	m.listener.OnMutation(ctx, auditevents.MutationEvent{
+		WorkspaceID:     workspaceID,
+		Action:          auditevents.ActionActivate,
+		PreviousVersion: prevVersion,
+		NewVersion:      version,
+		Timestamp:       time.Now(),
+	})
 
 	return m.store.GetActivePolicy(ctx, workspaceID)
 }
@@ -114,7 +140,8 @@ func (m *Manager) Rollback(ctx context.Context, workspaceID, targetVersion strin
 		return policystore.PolicyRecord{}, fmt.Errorf("%w: %v", ErrInvalidPolicy, err)
 	}
 
-	if _, err := m.store.RollbackPolicy(ctx, workspaceID, targetVersion); err != nil {
+	rolledBackFrom, err := m.store.RollbackPolicy(ctx, workspaceID, targetVersion)
+	if err != nil {
 		return policystore.PolicyRecord{}, fmt.Errorf("policymanager: rollback in store: %w", err)
 	}
 
@@ -122,6 +149,14 @@ func (m *Manager) Rollback(ctx context.Context, workspaceID, targetVersion strin
 	m.mu.Lock()
 	m.engines[workspaceID] = eng
 	m.mu.Unlock()
+
+	m.listener.OnMutation(ctx, auditevents.MutationEvent{
+		WorkspaceID:     workspaceID,
+		Action:          auditevents.ActionRollback,
+		PreviousVersion: rolledBackFrom,
+		NewVersion:      targetVersion,
+		Timestamp:       time.Now(),
+	})
 
 	return m.store.GetActivePolicy(ctx, workspaceID)
 }
