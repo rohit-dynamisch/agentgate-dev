@@ -25,3 +25,6 @@ Thumbs.db
 
 # IDE / local agent junctions
 .agents/
+
+# Local Codex/Git worktrees
+.worktrees/
