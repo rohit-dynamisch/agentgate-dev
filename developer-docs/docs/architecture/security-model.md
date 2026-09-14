@@ -69,13 +69,17 @@ open decision **O-001** (critical) — check
 [Open decisions](../development/open-decisions.md) before implementing anything
 in this area.
 
-## Audit invariants (not yet built)
+## Audit invariants (G5 Durable Audit Boundary — O-002 Resolved)
 
-Every ALLOW and DENY must have a defined **durable** audit outcome; the audit
-durability question (**O-002**) is resolved at the invariant level (no ALLOW
-without a durable record; failure denies closed). The concrete durable-buffer
-mechanism remains implementation work. `internal/audit` is currently a
-placeholder.
+Every ALLOW and DENY decision provably produces a **durable, append-only, tamper-evident** audit outcome in PostgreSQL (`internal/audit`). Open decision **O-002** is resolved:
+
+- **Fail-Closed Enforcement:** Any audit write or persistence failure immediately converts an `ALLOW` decision into a `DENY` (`audit_failed`).
+- **Cryptographic Chain Verification:** Events form a SHA-256 hash chain per workspace; independent `ChainVerifier` asserts sequence continuity.
+- **Data Privacy & Redaction:** Sensitive tool arguments are sanitized prior to persistence (`full`, `hash`, `omit`, key overrides).
+- **Engine-Level Immutability:** PostgreSQL triggers reject any `UPDATE` or `DELETE` on `audit_events`.
+- **Privilege Separation:** Application connections (`agentgate_app`) hold `SELECT`/`INSERT` only.
+
+See [Durable Audit Boundary](./durable-audit.md) for full architectural details.
 
 ## Open security-adjacent questions
 

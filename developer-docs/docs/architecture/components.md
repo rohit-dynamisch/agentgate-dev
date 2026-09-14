@@ -32,9 +32,8 @@ paths are relative to the repo root unless stated otherwise.
 | `internal/auditevents` | Policy-mutation audit event contract + in-memory listeners (durable audit is later). | `MutationEvent`/`MutationListener` at `internal/auditevents/events.go:25/37`. |
 | `internal/mockauthz` | JSON wire layer for the G1 mock (strict unknown-field rejection, all-fields-always-present results). | `ServeHTTP` at `internal/mockauthz/handler.go:52`; wire types in `wire.go`. |
 | `internal/fixturepolicy` | The canonical G1 Cedar fixture policy with exported role/risk/arg constants. | `CedarSource` at `internal/fixturepolicy/fixturepolicy.go:47`. |
-| `internal/authz` | **Placeholder only.** Future ext_authz gRPC decision entry point (open decision O-008 governs the transport mapping). |
-| `internal/audit` | **Placeholder only.** Future durable decision audit. |
-| `qa/g1blackbox`, `qa/g2security`, `qa/g3governance`, `qa/g4integration` | Independent QA suites: run the built binary/sub-system over real HTTP/DB and assert behavior — they import **no** `internal/*` package. |
+| `internal/audit` | Append-only Postgres audit persistence, tamper-evident SHA-256 hash chaining, pre-persistence argument redaction, independent `ChainVerifier`, and fail-closed decision enforcement (O-002). | `Service` at `internal/audit/service.go:28`; `PostgresStore` at `postgres.go:42`; `ChainVerifier` at `verifier.go:30`. |
+| `qa/g1blackbox`, `qa/g2security`, `qa/g3governance`, `qa/g4integration`, `qa/g5audit` | Independent QA suites: run the built binary/sub-system over real HTTP/DB and assert behavior — they import **no** `internal/*` package. |
 
 ## Gateway/MCP (`gateway/`)
 
@@ -61,6 +60,7 @@ lifecycle state stores (`src/state/`), framework-free view renderers
 | `deploy/g2/` | G2 "reviewable target topology": `agentgate` image + config fixtures + negative configs. |
 | `deploy/g3/` | Reproducible Postgres topology: `postgres:16-alpine` + `agentgate` + migration-verification script. |
 | `deploy/g4/` | Integrated governance-to-decision E2E topology (reuses the g3 Dockerfile) with a full curl lifecycle runbook. |
+| `deploy/g5/` | Reproducible Postgres topology with database privilege separation (`agentgate_app` vs `agentgate_migrator`) and audit immutability triggers. |
 
 ## Canonical documentation (`docs/`)
 

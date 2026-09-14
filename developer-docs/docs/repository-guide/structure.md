@@ -1,4 +1,4 @@
----
+﻿---
 title: Repository Structure
 sidebar_position: 1
 description: Where everything lives in the agentgate-dev monorepo.
@@ -42,7 +42,7 @@ agentgate-dev/
 │   ├── g3/  (reproducible Postgres topology + migration script)
 │   └── g4/  (integrated governance-to-decision E2E topology)
 │
-└── docs-site/                 THIS Docusaurus developer-doc site
+└── developer-docs/                 THIS Docusaurus developer-doc site
     ├── docs/                  site content
     ├── src/                   landing page + styling
     ├── static/                static assets
@@ -55,8 +55,8 @@ agentgate-dev/
   there. Exception: `gateway/harness` is its own module (run from `gateway/harness/`).
 - **`frontend/` is npm/Vitest**, not Go — use `npm install`, `npm test`,
   `npm run typecheck`.
-- **`docs-site/` is npm/Docusaurus** — use `npm install`, `npm run build`,
+- **`developer-docs/` is npm/Docusaurus** — use `npm install`, `npm run build`,
   `npm run start`.
 - **The repo `docs/` tree is the canonical documentation**, not this site.
-- `docs/prompts/`, `docs/.../results/`, and `docs-site/node_modules` are
+- `docs/prompts/`, `docs/.../results/`, and `developer-docs/node_modules` are
   gitignored working material — committed docs are the durable records.

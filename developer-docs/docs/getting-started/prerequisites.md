@@ -1,4 +1,4 @@
----
+﻿---
 title: Prerequisites
 sidebar_position: 2
 description: What you need installed to build, run, and test the AgentGate monorepo.
@@ -27,7 +27,7 @@ agentgateway, no Docker — unless you specifically opt into them (see below).
 |---|---|---|
 | A C compiler (gcc/clang/mingw) | any | Only to run `go test -race` locally — the race detector requires cgo. CI runs it on Linux where gcc is preinstalled. |
 | [golangci-lint](https://golangci-lint.run/welcome/install/) | any | To run the same lint check CI runs. |
-| Node.js + npm | Node ≥ 20 | The `frontend/` TypeScript contract layer (`npm test`, `npm run typecheck`) and the `docs-site/` Docusaurus site. |
+| Node.js + npm | Node ≥ 20 | The `frontend/` TypeScript contract layer (`npm test`, `npm run typecheck`) and the `developer-docs/` Docusaurus site. |
 | [Docker](https://docs.docker.com/get-docker/) | any recent | The `deploy/g1`–`g4` environments (Postgres, containerized service, QA probes). |
 | [agentgateway](https://agentgateway.dev) binary/image | latest | Real-gateway verification under `gateway/` (optional; the harness runs without it). |
 
@@ -43,7 +43,7 @@ agentgateway, no Docker — unless you specifically opt into them (see below).
 
 :::tip Working directory matters
 All `go` commands for the product run **from inside `agentgate/`**, where
-`go.mod` lives — not from the repo root. The docs-site lives at `docs-site/`;
+`go.mod` lives — not from the repo root. The developer-docs lives at `developer-docs/`;
 the canonical docs at `docs/`. See [Repository structure](../repository-guide/structure.md).
 :::
 

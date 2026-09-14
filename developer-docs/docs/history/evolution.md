@@ -102,6 +102,30 @@ candidate → validate → dry-run compare → activate → observe decision cha
   and an operational guide.
 - **Handoff:** G5 — Durable Audit Boundary (O-002 concrete implementation).
 
+## G5 — Durable Audit Boundary (2026-09-14, **PASS/CLOSED/FROZEN**)
+
+Formally approved by the Lead Architect 2026-09-14
+([`CLOSURE_SUMMARY.md`](https://github.com/rushi-dynmsh/agentgate-dev/blob/main/docs/PHASES/G5_WORKSTREAMS/CLOSURE_SUMMARY.md)).
+First checkpoint where a durable, tamper-evident boundary holds the audit
+evidence **after the process exits** — and fail-closed if it cannot:
+
+- **Durable audit boundary (`internal/audit`)** — append-only `audit_events`
+  ingestion + Postgres persistence, SHA-256 row chaining (each row hashes the
+  prior row → tamper-evident), independent `ChainVerifier` (recomputes the
+  chain from first row, detects any gap/rewrite), pre-persistence argument
+  redaction (full/hash/omit + sensitive-key overrides), fail-closed
+  enforcement (audit failure ⇒ decision `DENY`).
+- **O-002 resolved** (formally by the Lead Architect 2026-09-14): durable
+  tamper-evident persistence is the boundary that failed-closed audit
+  enforcement was waiting for.
+- **QA/DevOps:** `g5audit` QA suite (9 DoD invariants incl. tamper-detection,
+  chain verification, redaction, fail-closed, RBAC separation), independent
+  `ChainVerifier` proving tamper-evidence out-of-process, deploy/g5 reproduceable
+  Postgres topology + migration script.
+- **Handoff:** G6 — Real MCP end-to-end enforcement (O-008 concrete
+  implementation: wire durable audit into live gateway/MCP enforcement;
+  real-binary MCP E2E gate).
+
 ## Where each gate's history lives
 
 | Milestone | Durable record |

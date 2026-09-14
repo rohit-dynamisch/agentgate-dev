@@ -1,8 +1,8 @@
-# Docs Site — Working Artefacts
+﻿# Docs Site — Working Artefacts
 
 This folder holds the working artifacts of the docs site. Project convention:
 everything produced *in between* while building/updating this documentation
-lives here, inside the docs-site project — not scattered across the repo.
+lives here, inside the developer-docs project — not scattered across the repo.
 
 It is committed to the monorepo, because these files are the durable evidence
 and tooling behind the published docs (research snapshot, generator scripts,

@@ -1,8 +1,8 @@
-# Current State Survey — AgentGate repo (docs-site research note)
+﻿# Current State Survey — AgentGate repo (developer-docs research note)
 
 > Repository snapshot researched on **2026-09-14** (branch `development`,
 > HEAD `e45ba3f`). This note records the verified facts the documentation site
-> is built on. It is a working artifact — see `docs-site/artefacts/README.md`.
+> is built on. It is a working artifact — see `developer-docs/artefacts/README.md`.
 
 ## Verified via git history (52 non-merge commits, oldest→newest)
 
@@ -26,7 +26,7 @@
   `agentgate/go.mod` (CI pins toolchain from the same file).
 - Deps: `cedar-go` (policy), `pgx/v5` (Postgres). Frontend: strict TS,
   ES2022/NodeNext, Vitest, zero runtime deps, no UI framework.
-- Node for docs-site: v24.11.0, npm 11.6.1. Docusaurus 3.10.2 (classic TS) +
+- Node for developer-docs: v24.11.0, npm 11.6.1. Docusaurus 3.10.2 (classic TS) +
   `@docusaurus/theme-mermaid`.
 
 ## Code-level anchors (file:line — verified by reading)
@@ -98,6 +98,6 @@ O-006 (2026-09-13, argdecl whitelist).
 - `docusaurus.config.ts`: url `https://rushi-dynmsh.github.io`, baseUrl `/`
   (GitHub-Pages-shaped placeholders; deploy target not fixed — noted in site
   README), mermaid on, `onBrokenLinks: throw`, editUrl → repo
-  `tree/main/docs-site/`, blog disabled.
+  `tree/main/developer-docs/`, blog disabled.
 - Site `docs/` content is a synthesis; the repo `docs/` tree remains
   authoritative on conflict.

@@ -1,6 +1,6 @@
 # AgentGate — Open Decisions
 
-**Status:** Active — O-001, O-003–O-005, O-007, O-008 open; O-002, O-006 resolved
+**Status:** Active — O-001, O-003, O-004, O-008 open; O-002, O-005, O-006, O-007 resolved
 **Date:** 2026-08-22
 
 This file contains unresolved questions that may affect architecture or implementation.
@@ -90,24 +90,15 @@ established (`agentgate/cmd/g1-mock-authz`, `gateway/harness`) for contract-leve
 
 ## Resolved
 
-### O-002 — Audit durability invariant (resolved 2026-09-09, DAY-01/TASK-01)
+### O-002 — Audit durability invariant (resolved 2026-09-14, G5 checkpoint)
 
 **Priority was:** Critical
 
-**Original question:** whether an ALLOW may be returned when the corresponding audit event has not
-yet been durably persisted, given the technology plan's asynchronous audit-write concept versus an
-architecture review recommending against committing ALLOW without durable audit persistence.
+**Original question:** whether an ALLOW may be returned when the corresponding audit event has not yet been durably persisted, given the technology plan's asynchronous audit-write concept versus an architecture review recommending against committing ALLOW without durable audit persistence.
 
-**Resolution:** no — an ALLOW must not be returned unless a durable audit outcome for that exact
-decision is guaranteed (a synchronous PostgreSQL write, or a durable local buffer/journal that
-survives a process crash, with PostgreSQL as the eventual sink). Audit-durability failure fails the
-request closed. Recorded as a binding invariant in
-`docs/SECURITY/PRODUCTION-INVARIANTS.md §5` and §12.2 (Blocking Decision #2).
+**Resolution:** no — an ALLOW must not be returned unless a durable audit outcome for that exact decision is guaranteed. Audit-durability failure fails the request closed (`DENY`). Recorded as a binding invariant in `docs/SECURITY/PRODUCTION-INVARIANTS.md §5` and §12.2.
 
-**What remains (not reopened as an architectural question):** the specific durable-buffer
-technology/format is an implementation decision for Day 7 of
-`docs/PHASES/AGENTGATE_V1_15_DAY_PRODUCTION_PLAN.md`, not an open invariant question — only the
-*mechanism*, not the *guarantee*, remains to be built.
+**Implementation (Completed G5, 2026-09-14):** Implemented in `agentgate/internal/audit`: append-only `audit_events` PostgreSQL persistence, tamper-evident SHA-256 row chaining (`prev_hash` + `row_hash`), independent out-of-process `ChainVerifier`, pre-persistence argument redaction (`redact.go`), fail-closed decision enforcement (`service.go`), DB immutability triggers (`prevent_audit_modification`), and DB privilege separation (`agentgate_app` vs `agentgate_migrator`). Formally approved by the Lead Architect 2026-09-14.
 
 ### O-006 — Argument authorization model (resolved 2026-09-13, G2 checkpoint)
 
@@ -149,6 +140,18 @@ once the declared arguments reach policy evaluation.
 - `docs/PHASES/G2_WORKSTREAMS/results/GO_BACKEND_G2_REPORT.md` §Open Decisions
 - `agentgate/internal/decision/types.go` (AttributeValue type, historical O-006 comment)
 - `agentgate/internal/decision/doc.go` (historical O-006 reference)
+
+### O-005 — Tool identity and schema fingerprint (resolved 2026-09-13, G2 checkpoint)
+
+**Priority was:** High
+
+**Resolution:** Implemented in `agentgate/internal/toolregistry`. Defines deterministic canonicalization and SHA-256 fingerprinting for backend identity + tool name + schema. Any schema drift triggers `CheckDrift()` detection and deny-by-default behavior until classified.
+
+### O-007 — AgentGate execution identity (resolved 2026-09-13, G2 & G5 checkpoints)
+
+**Priority was:** Medium/High
+
+**Resolution:** Defined `execution_id` correlation identifier populated across `decision.Request` (`internal/contextassembly`) and persisted in `audit_events` (`internal/audit`) for end-to-end request tracing and audit correlation.
 
 ## Decision protocol
 

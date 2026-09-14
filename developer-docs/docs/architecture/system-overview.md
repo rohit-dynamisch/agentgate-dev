@@ -38,9 +38,9 @@ flowchart LR
 
 ## What exists today vs. the target
 
-The current codebase (checkpoint G4, see
+The current codebase (checkpoint G5, see
 [Current Status](../development/current-status.md)) implements the **AgentGate
-side** of this diagram and proves its contract with a JSON/HTTP mock. The real
+side** of this diagram and proves its contract with a JSON/HTTP mock alongside a durable append-only Postgres audit boundary (`internal/audit`). The real
 `ext_authz` gRPC boundary (`internal/authz`) is *not built yet* — it is a
 documented placeholder. Today's verified flows:
 
@@ -51,12 +51,14 @@ flowchart LR
         MOCK["cmd/g1-mock-authz — mock transport<br/>(internal/mockauthz)<br/>wraps the REAL decision core"]
         CORE["decision core<br/>(internal/decision + internal/policy + Cedar)"]
         GOV["governance API<br/>(internal/govapi)<br/>policy lifecycle + dry-run"]
+        AUD["durable audit<br/>(internal/audit)<br/>hash chaining + redaction"]
 
-        CLI --> MOCK --> CORE
+        CLI --> MOCK --> CORE --> AUD
         CLI --> GOV
     end
-    PG[("Postgres<br/>(policy store — opt-in)")]
+    PG[("Postgres<br/>(policy store + audit_events)")]
     GOV --> PG
+    AUD --> PG
 ```
 
 The product's decision logic is real; the *transport* to it in production

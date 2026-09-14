@@ -9,10 +9,7 @@
 
 ---
 
-> ⚠️ **Early development.** AgentGate is not usable yet. There is a Go service scaffold that
-> starts, serves health checks, and shuts down cleanly — but no authorization decision, policy
-> evaluation, identity resolution, or audit logging exists in this codebase yet. See
-> [Project status](#project-status) before assuming anything below is implemented.
+> ℹ️ **Active development (G5 Closed).** Core authorization decision logic, identity claims mapping, tool governance, versioned policy persistence, admin governance REST API, dry-run compare, and durable tamper-evident audit logging are implemented and verified through G5. See [Project status](#project-status) for details.
 
 ## What is AgentGate?
 
@@ -53,12 +50,13 @@ This project is being developed in phases, tracked in
 |---|---|
 | Go module, service scaffold, config, logging, health/readiness | ✅ Implemented |
 | CI (format/vet/test/lint/vulnerability checks) | ✅ Implemented |
-| Cedar policy evaluation | ⬜ Not implemented |
-| Identity / claims resolution | ⬜ Not implemented |
-| `agentgateway` ↔ AgentGate `ext_authz` integration | ⬜ Not implemented |
-| Audit logging | ⬜ Not implemented |
-| Policy governance UI, dry-run/rollback | ⬜ Not implemented |
-| Downstream credential handling | ⬜ Not implemented — depends on an [open decision](docs/DECISIONS/OPEN_DECISIONS.md) |
+| Cedar policy evaluation & frozen decision core (G1) | ✅ Implemented |
+| Identity / claims resolution & tool governance (G2) | ✅ Implemented |
+| Versioned policy persistence & Admin REST API (G3) | ✅ Implemented |
+| Policy governance workflow, dry-run compare & rollback (G4) | ✅ Implemented |
+| Durable append-only audit logging & tamper-evident SHA-256 chaining (G5) | ✅ Implemented |
+| `agentgateway` ↔ AgentGate `ext_authz` wire integration (G6) | ⬜ In progress |
+| Downstream credential handling | ⬜ Deferred — depends on [O-001](docs/DECISIONS/OPEN_DECISIONS.md) |
 
 Nothing here enforces anything yet. Do not deploy it expecting governance behavior.
 
@@ -121,6 +119,7 @@ that's a deliberate project rule (see [`CLAUDE.md`](CLAUDE.md)). Start here:
 | [`docs/AI/AI_DEVELOPMENT_MODEL.md`](docs/AI/AI_DEVELOPMENT_MODEL.md) | How AI-assisted development is structured on this project |
 | [`docs/PHASES/`](docs/PHASES/) | Per-phase task specifications |
 | [`docs/TEAM/`](docs/TEAM/) | Team ownership per phase |
+| [`developer-docs/`](developer-docs/) | The Docusaurus developer-doc site - a rendered narrative site generated from the canonical docs above. Run `npm start` from `developer-docs/` to serve locally, or the [deployed site](/developer-docs/docs/intro) for the static build |
 
 ## Contributing
 

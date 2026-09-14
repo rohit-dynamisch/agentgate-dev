@@ -1,5 +1,5 @@
----
-name: docs-architect
+﻿---
+name: developer-docs-architect
 description: Build and maintain a developer-facing Docusaurus documentation website for a repository, acting as the authoritative onboarding and developer knowledge base so a new developer can understand, run, navigate, modify, test, and debug the project without a KT session. Use this skill whenever the user asks to create, generate, update, refresh, or maintain project documentation, a docs site, a Docusaurus site, a developer wiki, an onboarding guide, an architecture overview, or a commit/history index for a codebase — even if they just say "document this repo" or "set up docs" without naming Docusaurus explicitly. Also use when asked to add diagrams (Mermaid) explaining architecture or data flow, to link documentation to GitHub source/commits/PRs, or to audit existing docs against the current source code for staleness.
 ---
 
@@ -117,7 +117,7 @@ Before declaring the work done, confirm:
 
 ## Notes for the agent running this skill
 
-- If a Docusaurus site doesn't exist yet in the repo, scaffold one (`npx create-docusaurus@latest`) inside a clearly named docs directory (e.g. `docs-site/` or `website/`) rather than at repo root, unless the user specifies otherwise.
+- If a Docusaurus site doesn't exist yet in the repo, scaffold one (`npx create-docusaurus@latest`) inside a clearly named docs directory (e.g. `developer-docs/` or `website/`) rather than at repo root, unless the user specifies otherwise.
 - If a Docusaurus site already exists, read its current `sidebars` and `docusaurus.config` before restructuring — extend rather than clobber unless asked to redo it.
 - Prefer incremental commits/checkpoints within the docs directory so the user can review documentation growth, especially on large repos.
 - When repo or history is very large, prioritize: entry points → most-changed files/directories (by commit frequency) → core business logic → peripheral utilities. Don't try to exhaustively document everything before validating the structure with the user.

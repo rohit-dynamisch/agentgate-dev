@@ -1,4 +1,4 @@
-# AgentGate — Developer Docs Site
+﻿# AgentGate — Developer Docs Site
 
 This folder is a [Docusaurus](https://docusaurus.io/) static site that is part of
 the `agentgate-dev` monorepo. It is the synthesized, source-checked developer
@@ -9,7 +9,7 @@ remains the repository's own `docs/` tree — see
 ## Layout
 
 ```
-docs-site/
+developer-docs/
 ├── docs/          Docusaurus content (the documentation you browse)
 ├── src/           landing page + site styling
 ├── static/        static assets
@@ -32,7 +32,7 @@ from history — see "Regenerating the commit index" below.
 ## Getting started
 
 ```bash
-cd docs-site
+cd developer-docs
 npm install
 ```
 
@@ -70,7 +70,7 @@ not hand-written:
 node artefacts/scripts/generate-commit-index.mjs
 ```
 
-Run it from the **repo root** (one level above `docs-site/`) so it can read the
+Run it from the **repo root** (one level above `developer-docs/`) so it can read the
 monorepo's git history. Re-run it whenever meaningful commits land.
 
 ## Editing content

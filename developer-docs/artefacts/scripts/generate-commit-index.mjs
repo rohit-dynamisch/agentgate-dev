@@ -1,25 +1,25 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // Generate docs/history/commit-index.md from the monorepo git log.
 //
-// Run from the REPO ROOT (docs-site/../), not from docs-site/:
+// Run from the REPO ROOT (developer-docs/../), not from developer-docs/:
 //
-//   node docs-site/artefacts/scripts/generate-commit-index.mjs
+//   node developer-docs/artefacts/scripts/generate-commit-index.mjs
 //
 // The index lists the FULL product history from HEAD (non-merge commits,
 // newest first) and links every hash to its GitHub permalink:
 //
 //   https://github.com/rushi-dynmsh/agentgate-dev/commit/<hash>
 //
-// SELF-REFERENCE LOOP — docs-site commits are EXCLUDED from the index. If the
-// index included them, regenerating it would itself create a docs-site commit,
+// SELF-REFERENCE LOOP — developer-docs commits are EXCLUDED from the index. If the
+// index included them, regenerating it would itself create a developer-docs commit,
 // which would then appear in the index, forcing another regeneration, forever.
-// Excluding the docs-site path keeps product commits flowing into the index
+// Excluding the developer-docs path keeps product commits flowing into the index
 // while making the regeneration commit itself invisible.
 //
 // Links only resolve once the branch is pushed, so the script checks the live
 // remote tip and WARNs if HEAD is ahead of it (unpublished commits would 404).
 //
-// Output is written to docs-site/docs/history/commit-index.md. The generated
+// Output is written to developer-docs/docs/history/commit-index.md. The generated
 // file is committed so the static site reflects the git history at generation
 // time; regenerate whenever meaningful commits land. Safe to re-run — it
 // overwrites only its own target file.
@@ -31,9 +31,9 @@ import { writeFileSync } from "node:fs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
-// The repo root = three levels above this script (docs-site/artefacts/scripts/).
+// The repo root = three levels above this script (developer-docs/artefacts/scripts/).
 const repoRoot = join(scriptDir, "..", "..", "..");
-const outFile = join(repoRoot, "docs-site", "docs", "history", "commit-index.md");
+const outFile = join(repoRoot, "developer-docs", "docs", "history", "commit-index.md");
 
 const REPO_BASE = "https://github.com/rushi-dynmsh/agentgate-dev";
 const REMOTE = "origin";
@@ -77,7 +77,7 @@ function run() {
 
   // NOTE: --pretty=%h%x09%cs%x09%an%x09%s keeps subjects free of emoticons/
   // control chars that would break the markdown table. git log is newest-first
-  // by default; --no-merges keeps only real commits. Pathspec EXCLUDES docs-site
+  // by default; --no-merges keeps only real commits. Pathspec EXCLUDES developer-docs
   // so maintenance commits don't feed the self-reference loop described above.
   const log = gitTry([
     "log",
@@ -87,7 +87,7 @@ function run() {
     head,
     "--",
     ".",
-    ":(exclude)docs-site",
+    ":(exclude)developer-docs",
   ]);
   if (log === null) throw new Error("git log failed — cannot generate commit index.");
 
@@ -109,16 +109,16 @@ function run() {
   const md = `# Commit Index
 
 <!-- GENERATED FILE — do not edit by hand. -->
-<!-- Source: node docs-site/artefacts/scripts/generate-commit-index.mjs (run from repo root). -->
+<!-- Source: node developer-docs/artefacts/scripts/generate-commit-index.mjs (run from repo root). -->
 
 Automatically transcribed from the monorepo \`git log\` (non-merge **product**
-commits — docs-site maintenance commits are excluded so the index does not feed
+commits — developer-docs maintenance commits are excluded so the index does not feed
 its own regeneration) at generation time, **newest first**, for all product commits
 reachable from \`HEAD\` (\`${headShort}\`). ${count} commits listed; each hash links
 to its GitHub permalink. Regenerate with:
 
 \`\`\`bash
-node docs-site/artefacts/scripts/generate-commit-index.mjs
+node developer-docs/artefacts/scripts/generate-commit-index.mjs
 \`\`\`
 
 | Commit | Date | Author | Subject |

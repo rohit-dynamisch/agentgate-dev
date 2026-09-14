@@ -1,20 +1,30 @@
 # Commit Index
 
 <!-- GENERATED FILE — do not edit by hand. -->
-<!-- Source: node docs-site/artefacts/scripts/generate-commit-index.mjs (run from repo root). -->
+<!-- Source: node developer-docs/artefacts/scripts/generate-commit-index.mjs (run from repo root). -->
 
 Automatically transcribed from the monorepo `git log` (non-merge **product**
-commits — docs-site maintenance commits are excluded so the index does not feed
+commits — developer-docs maintenance commits are excluded so the index does not feed
 its own regeneration) at generation time, **newest first**, for all product commits
-reachable from `HEAD` (`68cf09d`). 51 commits listed; each hash links
+reachable from `HEAD` (`25b5ea4`). 61 commits listed; each hash links
 to its GitHub permalink. Regenerate with:
 
 ```bash
-node docs-site/artefacts/scripts/generate-commit-index.mjs
+node developer-docs/artefacts/scripts/generate-commit-index.mjs
 ```
 
 | Commit | Date | Author | Subject |
 |---|---|---|---|
+| [`25B5EA4`](https://github.com/rushi-dynmsh/agentgate-dev/commit/25b5ea4) | 2026-09-14 | Rushikesh Surve | docs(g5): publish G5 closure summary and freeze checkpoint |
+| [`1C0294A`](https://github.com/rushi-dynmsh/agentgate-dev/commit/1c0294a) | 2026-09-14 | Rushikesh Surve | fix(audit): populate policy_hash with exact evaluated policy bytes SHA-256 |
+| [`ED9A834`](https://github.com/rushi-dynmsh/agentgate-dev/commit/ed9a834) | 2026-09-14 | Rushikesh Surve | test(qa): add independent G5 durable audit and security proof suite |
+| [`C3F2818`](https://github.com/rushi-dynmsh/agentgate-dev/commit/c3f2818) | 2026-09-14 | Rushikesh Surve | feat(devops): add G5 reproducible topology with DB privilege separation |
+| [`06CCD42`](https://github.com/rushi-dynmsh/agentgate-dev/commit/06ccd42) | 2026-09-14 | Rushikesh Surve | feat(g5): implement fail-safe audited decision service and mutation audit listener |
+| [`2471FE7`](https://github.com/rushi-dynmsh/agentgate-dev/commit/2471fe7) | 2026-09-14 | Rushikesh Surve | feat(g5): implement deterministic canonicalization, hash chaining, and independent verifier |
+| [`E37EB58`](https://github.com/rushi-dynmsh/agentgate-dev/commit/e37eb58) | 2026-09-14 | Rushikesh Surve | feat(g5): implement pre-persistence argument redaction and salted hashing |
+| [`620E3EA`](https://github.com/rushi-dynmsh/agentgate-dev/commit/620e3ea) | 2026-09-14 | Rushikesh Surve | feat(g5): implement durable audit schema, types, and persistence engine |
+| [`DF444C6`](https://github.com/rushi-dynmsh/agentgate-dev/commit/df444c6) | 2026-09-14 | Rushikesh Surve | docs(g5): add G5 workstream specifications and checkpoint references |
+| [`5178153`](https://github.com/rushi-dynmsh/agentgate-dev/commit/5178153) | 2026-09-14 | Rushikesh Surve | docs(site): add Docusaurus documentation website |
 | [`E45BA3F`](https://github.com/rushi-dynmsh/agentgate-dev/commit/e45ba3f) | 2026-09-14 | Rushikesh Surve | docs(g4): add formal G4 closure summary after Lead Architect approval |
 | [`865E0E7`](https://github.com/rushi-dynmsh/agentgate-dev/commit/865e0e7) | 2026-09-14 | Rushikesh Surve | fix(devops): use environment variable injection for credentials and document test fixtures |
 | [`20E946F`](https://github.com/rushi-dynmsh/agentgate-dev/commit/20e946f) | 2026-09-14 | Rushikesh Surve | chore: add docs-architect Claude skill for building Docusaurus documentation |
@@ -68,4 +78,4 @@ node docs-site/artefacts/scripts/generate-commit-index.mjs
 | [`F8D1799`](https://github.com/rushi-dynmsh/agentgate-dev/commit/f8d1799) | 2026-08-22 | Rushikesh Surve | docs: establish AI development workflow |
 
 ---
-*Generated 2026-09-14 — 51 commits, tip `68cf09d`.*
+*Generated 2026-09-14 — 61 commits, tip `25b5ea4`.*

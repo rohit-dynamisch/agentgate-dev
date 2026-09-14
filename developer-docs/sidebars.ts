@@ -28,6 +28,7 @@ const sidebars: SidebarsConfig = {
         'architecture/governance-api',
         'architecture/governance-decision-integration',
         'architecture/gateway-integration',
+        'architecture/durable-audit',
         'architecture/frontend',
         'architecture/security-model',
       ],
