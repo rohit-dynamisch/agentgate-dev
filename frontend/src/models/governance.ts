@@ -54,6 +54,33 @@ export interface PreviewResponse {
   results: PreviewResult[];
 }
 
+export interface DryRunCompareResult {
+  active_decision: string;
+  active_reason: string;
+  active_policy_version: string;
+  candidate_decision: string;
+  candidate_reason: string;
+  candidate_policy_version: string;
+  changed: boolean;
+}
+
+export interface DryRunCompareResponse {
+  candidate_version: string;
+  results: DryRunCompareResult[];
+}
+
+export interface DryRunSample {
+  principal_id: string;
+  principal_roles: string[];
+  resource_id?: string | undefined;
+  resource_risk?: string | undefined;
+  backend_id?: string | undefined;
+  tool_name?: string | undefined;
+  risk?: string | undefined;
+  execution_id?: string | undefined;
+  on_behalf_of?: string | undefined;
+}
+
 export class GovernanceApiError extends Error {
   public readonly code: string;
   public readonly status: number;
@@ -65,3 +92,4 @@ export class GovernanceApiError extends Error {
     this.code = code;
   }
 }
+

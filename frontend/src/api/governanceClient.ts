@@ -1,5 +1,8 @@
 import {
   ActivateResponse,
+  DryRunCompareResponse,
+  DryRunCompareResult,
+  DryRunSample,
   GovernanceApiError,
   ListPoliciesResponse,
   PolicyRecord,
@@ -16,6 +19,7 @@ export interface GovernanceClient {
   activatePolicy(workspaceId: string, version: string): Promise<ActivateResponse>;
   rollbackPolicy(workspaceId: string, targetVersion: string): Promise<RollbackResponse>;
   previewPolicy(workspaceId: string, version: string, sampleRequests: PreviewSample[]): Promise<PreviewResponse>;
+  dryRunCompare(workspaceId: string, version: string, sampleRequests: (PreviewSample | DryRunSample)[]): Promise<DryRunCompareResponse>;
 }
 
 // Simple hash simulation for MockGovernanceClient
@@ -147,6 +151,24 @@ export class MockGovernanceClient implements GovernanceClient {
       })),
     };
   }
+
+  async dryRunCompare(_workspaceId: string, version: string, sampleRequests: (PreviewSample | DryRunSample)[]): Promise<DryRunCompareResponse> {
+    const isForbid = version.includes("forbid");
+    const activeDecision = "ALLOW";
+    const candidateDecision = isForbid ? "DENY" : "ALLOW";
+    return {
+      candidate_version: version,
+      results: sampleRequests.map(() => ({
+        active_decision: activeDecision,
+        active_reason: "policy_allow",
+        active_policy_version: "v_active",
+        candidate_decision: candidateDecision,
+        candidate_reason: isForbid ? "policy_deny" : "policy_allow",
+        candidate_policy_version: version,
+        changed: activeDecision !== candidateDecision,
+      })),
+    };
+  }
 }
 
 export interface FetchRequestOptions {
@@ -247,6 +269,43 @@ export class HttpGovernanceClient implements GovernanceClient {
       {
         method: "POST",
         body: JSON.stringify({ sample_requests: sampleRequests }),
+      }
+    );
+  }
+
+  async dryRunCompare(workspaceId: string, version: string, sampleRequests: (PreviewSample | DryRunSample)[]): Promise<DryRunCompareResponse> {
+    const samples = sampleRequests.map((s, idx) => {
+      let backendId = (s as DryRunSample).backend_id;
+      let toolName = (s as DryRunSample).tool_name;
+      if (!backendId && s.resource_id) {
+        const parts = s.resource_id.split("/");
+        if (parts.length > 1) {
+          backendId = parts[0]!;
+          toolName = parts.slice(1).join("/");
+        } else {
+          backendId = "default";
+          toolName = parts[0]!;
+        }
+      }
+      const sampleObj: Record<string, unknown> = {
+        execution_id: (s as DryRunSample).execution_id || `dryrun-${idx + 1}`,
+        principal_id: s.principal_id,
+        principal_roles: s.principal_roles,
+        backend_id: backendId || "default",
+        tool_name: toolName || "tool",
+        risk: (s as DryRunSample).risk || s.resource_risk || "read",
+      };
+      if ((s as DryRunSample).on_behalf_of) {
+        sampleObj["on_behalf_of"] = (s as DryRunSample).on_behalf_of;
+      }
+      return sampleObj;
+    });
+
+    return this.request<DryRunCompareResponse>(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/policies/${encodeURIComponent(version)}/dryrun`,
+      {
+        method: "POST",
+        body: JSON.stringify({ sample_requests: samples }),
       }
     );
   }
