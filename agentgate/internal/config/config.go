@@ -24,6 +24,7 @@ const (
 	defaultHTTPAddr        = ":8090"
 	defaultLogLevel        = "info"
 	defaultShutdownTimeout = 10 * time.Second
+	defaultAdminToken      = "agentgate-admin-secret-dev"
 )
 
 // Config holds AgentGate's startup configuration.
@@ -45,6 +46,13 @@ type Config struct {
 	// ShutdownTimeout bounds how long graceful shutdown waits for
 	// in-flight requests to finish before the process exits anyway.
 	ShutdownTimeout time.Duration
+
+	// AdminToken is the secret required for authenticated policy governance mutations.
+	AdminToken string
+
+	// DatabaseURL is the PostgreSQL connection string for persistent policy storage.
+	// If empty, AgentGate runs with an in-memory policy store.
+	DatabaseURL string
 }
 
 // Load reads configuration from the process environment, applies defaults
@@ -70,6 +78,9 @@ func Load() (Config, error) {
 	}
 	cfg.ShutdownTimeout = timeout
 
+	cfg.AdminToken = getEnv(envPrefix+"ADMIN_TOKEN", defaultAdminToken)
+	cfg.DatabaseURL = getEnv(envPrefix+"DATABASE_URL", "")
+
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -85,6 +96,9 @@ func (c Config) Validate() error {
 	}
 	if c.ShutdownTimeout <= 0 {
 		return fmt.Errorf("config: %sSHUTDOWN_TIMEOUT must be positive, got %s", envPrefix, c.ShutdownTimeout)
+	}
+	if strings.TrimSpace(c.AdminToken) == "" {
+		return fmt.Errorf("config: %sADMIN_TOKEN must not be empty", envPrefix)
 	}
 	return nil
 }

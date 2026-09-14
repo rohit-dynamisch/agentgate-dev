@@ -1,0 +1,26 @@
+# deploy/g2/Dockerfile.agentgate — G2 AgentGate Service Packaging
+#
+# Packages the AgentGate core service binary for G2 contract and integration testing.
+# Follows non-root, minimal distroless runtime design.
+#
+# Build context: repository root
+#   docker build -f deploy/g2/Dockerfile.agentgate -t agentgate/agentgate:g2 .
+
+FROM golang:1.24 AS build
+WORKDIR /src
+COPY agentgate/go.mod agentgate/go.sum ./agentgate/
+WORKDIR /src/agentgate
+RUN go mod download
+WORKDIR /src
+COPY agentgate/ ./agentgate/
+WORKDIR /src/agentgate
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/agentgate ./cmd/agentgate
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/agentgate /agentgate
+ENV AGENTGATE_HTTP_ADDR=":8090"
+ENV AGENTGATE_ENV="development"
+ENV AGENTGATE_LOG_LEVEL="info"
+EXPOSE 8090
+USER nonroot:nonroot
+ENTRYPOINT ["/agentgate"]

@@ -1,0 +1,30 @@
+{
+  "name": "deny_explicit_destructive",
+  "category": "DENY",
+  "description": "Valid identity (role=admin) invoking a tool classified risk=destructive. The fixture policy's explicit forbid rule matches regardless of role. G1 checkpoint scenario: 'valid identity + deny'.",
+  "request": {
+    "execution_id": "exec-g1-0002",
+    "workspace_id": "ws-g1-demo",
+    "identity": {
+      "agent_id": "agent-admin-01",
+      "on_behalf_of": "human-alice",
+      "roles": ["admin"]
+    },
+    "tool": {
+      "backend_id": "toy-mcp-backend",
+      "name": "delete_all_records"
+    },
+    "classification": {
+      "known": true,
+      "risk": "destructive"
+    },
+    "arguments": {}
+  },
+  "expect": {
+    "http_status": 200,
+    "decision": "DENY",
+    "reason": "policy_deny",
+    "policy_version_nonempty": true,
+    "backend_reached": false
+  }
+}

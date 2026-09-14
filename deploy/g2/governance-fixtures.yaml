@@ -1,0 +1,63 @@
+# deploy/g2/governance-fixtures.yaml — G2 Tool Governance & Argument Fixtures (G2-DO-03)
+#
+# Deterministic fixture format for tool identity, risk classification,
+# canonical schema fingerprint, and typed argument declarations.
+#
+# NOTE: This is a fixture / configuration format for G2 development and testing.
+# Production persistent storage is owned by G3 (PostgreSQL / policy storage).
+
+tools:
+  - backend_id: "backend-fixture"
+    tool_name: "list_files"
+    known: true
+    risk: "read"
+    registered_fingerprint: "53582d9d7229826e75097ac478787ca403c94ce74e4611571be1b03c706952cc"
+    schema:
+      type: "object"
+      properties:
+        path:
+          type: "string"
+    argument_declarations:
+      - name: "path"
+        type: "string"
+        required: true
+
+  - backend_id: "backend-fixture"
+    tool_name: "write_file"
+    known: true
+    risk: "write"
+    registered_fingerprint: "3d4598d9ee81d6c4936adef2071f052ad4b84b3eb9092c5e1c6d218c2e17ee82"
+    schema:
+      type: "object"
+      properties:
+        path:
+          type: "string"
+        content:
+          type: "string"
+    argument_declarations:
+      - name: "path"
+        type: "string"
+        required: true
+      - name: "content"
+        type: "string"
+        required: true
+
+  - backend_id: "backend-fixture"
+    tool_name: "delete_database"
+    known: true
+    risk: "destructive"
+    registered_fingerprint: "8f48a4369e8b340156d9be70b1ecfa1a0c776a3b2b1ff140c83697926b472e39"
+    schema:
+      type: "object"
+      properties:
+        database_name:
+          type: "string"
+        force:
+          type: "boolean"
+    argument_declarations:
+      - name: "database_name"
+        type: "string"
+        required: true
+      - name: "force"
+        type: "bool"
+        required: false

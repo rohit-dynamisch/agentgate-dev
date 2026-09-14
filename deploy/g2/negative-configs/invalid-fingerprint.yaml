@@ -1,0 +1,8 @@
+# Negative config: registered_fingerprint is malformed (not 64-char hex)
+# Expected behavior: tool registration validation MUST fail closed.
+tools:
+  - backend_id: "backend-fixture"
+    tool_name: "list_files"
+    known: true
+    risk: "read"
+    registered_fingerprint: "short-fp-1234" # Invalid: must be 64-char hex

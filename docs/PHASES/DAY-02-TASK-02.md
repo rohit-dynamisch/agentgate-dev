@@ -3,7 +3,11 @@
 **Owner:** Backend Developer  
 **Review:** Lead Architect + QA  
 **Phase:** AgentGate v1 15-Day Production Readiness  
-**Status:** Ready for execution  
+**Status:** Complete — accepted. Its deliverable (the `internal/decision`/`internal/policy`
+decision core) is now the frozen G1 contract, documented in
+`docs/PHASES/G1_WORKSTREAMS/GO_BACKEND_G1_CONTRACT.md`; this task spec is kept as the historical
+record of what was assigned. The 15-day sequencing this task belonged to was itself superseded
+after this task by `docs/PHASES/AGENTGATE_V1_10_DAY_PARALLEL_TEAM_EXECUTION_PLAN.md`.  
 **Dependency:** DAY-01/TASK-01 accepted
 
 ## Objective
@@ -19,7 +23,7 @@ Read before implementation:
 - `CLAUDE.md`
 - `docs/PROJECT_DEFINITION.md`
 - `docs/TECH_STACK.md`
-- `docs/DEVELOPMENT/MASTER_PLAN.md`
+- `docs/PHASES/archive/MASTER_PLAN.md`
 - `docs/DEVELOPMENT/CURRENT_STATUS.md`
 - `docs/DECISIONS/OPEN_DECISIONS.md`
 - `docs/SECURITY/PRODUCTION-INVARIANTS.md`

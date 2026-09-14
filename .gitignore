@@ -1,11 +1,27 @@
 docs/prompts
-docs/gitignored
+docs/superpowers
+
+# Ephemeral, per-checkpoint handoff artifacts (reports + digests for the
+# human<->Lead-Architect loop) — never permanent, never code-referenced.
+# One per checkpoint, same shape every time: docs/PHASES/G{N}_WORKSTREAMS/results/
+docs/PHASES/*_WORKSTREAMS/results
+
 # Go build/test artifacts (agentgate/ module)
 /agentgate/agentgate
 /agentgate/agentgate.exe
 *.test
 *.out
 
+# Node/frontend build artifacts
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# IDE / local agent junctions
+.agents/

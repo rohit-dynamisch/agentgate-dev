@@ -5,6 +5,13 @@
 **Author:** Senior Software Engineer (AI coding agent)
 **Workflow file:** `.github/workflows/ci.yml`
 
+> **Status update (2026-09-13):** the "no application code yet" section below describes the
+> repository as of 2026-08-22, before the Go module existed. `agentgate/go.mod` has existed since
+> then and the CI checks described here now actually run on every push, not just "will run once
+> the module exists." The gating mechanism itself (detect `go.mod`, skip gracefully if absent) is
+> unchanged and still exactly as described — it's just no longer in its "waiting" state. See
+> `docs/DEVELOPMENT/SETUP.md` for how to run these checks locally.
+
 ---
 
 ## Purpose
@@ -12,8 +19,8 @@
 Provide the minimum useful continuous-integration foundation so that, from the moment Phase 1
 introduces the Go module, every push and pull request is automatically checked for formatting,
 correctness, and known vulnerabilities — without anyone having to remember to wire CI up after the
-fact. `docs/DEVELOPMENT/MASTER_PLAN.md §4` lists a "CI baseline" as part of Phase 0's own scope,
-and `docs/DEVELOPMENT/REPOSITORY_BASELINE.md` recorded it as the one Phase 0 item still
+fact. `docs/PHASES/archive/MASTER_PLAN.md §4` lists a "CI baseline" as part of Phase 0's own scope,
+and `docs/PHASES/archive/REPOSITORY_BASELINE.md` recorded it as the one Phase 0 item still
 outstanding. This task closes that gap.
 
 CI is deliberately kept to validation only at this stage: formatting, static analysis, tests, lint,
@@ -22,7 +29,7 @@ Phase 1's actual module layout.
 
 ## Current Repository Limitation — No Application Code Yet
 
-The repository is documentation-only (confirmed in `docs/DEVELOPMENT/REPOSITORY_BASELINE.md`):
+The repository is documentation-only (confirmed in `docs/PHASES/archive/REPOSITORY_BASELINE.md`):
 there is no `go.mod`, no Go source, no tests, and no dependency manifest of any kind. This means a
 CI workflow that unconditionally runs `go build`/`go test`/etc. would fail on every commit today —
 not because anything is broken, but because there is nothing to build.
@@ -66,7 +73,7 @@ at the workflow level (least privilege — nothing in this workflow needs write 
 
 ## Intentionally Deferred
 
-Per the task's explicit scope boundary and `docs/DEVELOPMENT/MASTER_PLAN.md`'s phased plan, the
+Per the task's explicit scope boundary and `docs/PHASES/archive/MASTER_PLAN.md`'s phased plan, the
 following are **not** part of this baseline and are left for later phases:
 
 - Docker image builds

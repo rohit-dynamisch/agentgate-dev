@@ -27,6 +27,12 @@ func NewEngine(policyBytes []byte) (*Engine, error) {
 	return &Engine{policy: pe}, nil
 }
 
+// NewEngineWithPolicy constructs an Engine wrapping an already-loaded, validated
+// policy.Engine (e.g. from internal/policymanager).
+func NewEngineWithPolicy(pe *policy.Engine) *Engine {
+	return &Engine{policy: pe}
+}
+
 // NewEngineWithoutPolicy constructs an Engine with no policy loaded. Every
 // request against it denies with ReasonNoPolicyLoaded — the explicit
 // representation of "startup with no valid policy must not authorize
@@ -47,6 +53,16 @@ func (e *Engine) Evaluate(req Request) Result {
 	}
 	if !req.Classification.Known {
 		return deny(req, ReasonUnknownTool, "tool is not classified", "")
+	}
+	if strings.TrimSpace(req.Classification.Risk) == "" {
+		// Risk is required whenever Known is true — see ToolClassification's
+		// doc comment. Previously unenforced: an empty Risk fell through to
+		// Cedar and reliably denied as ReasonNoMatchingPolicy (no rule
+		// matches an empty risk string), never an accidental ALLOW, but that
+		// left a documented "required" field actually unvalidated. Found by
+		// QA/Security during the G1 checkpoint; enforced explicitly here
+		// rather than weakening the documentation to match the old behavior.
+		return deny(req, ReasonMalformedRequest, "tool risk is required when classification.known is true", "")
 	}
 	if e == nil || e.policy == nil {
 		return deny(req, ReasonNoPolicyLoaded, "no policy loaded", "")

@@ -1,0 +1,30 @@
+{
+  "name": "evaluation_error_broken_role",
+  "category": "evaluation_error",
+  "description": "role=broken's fixture-policy rule references context.amount without a 'has' guard. Omitting the 'amount' argument entirely makes Cedar itself report a genuine internal evaluation error (not a simulated/hand-rolled one). decision.Engine forces DENY whenever Cedar reports an error, regardless of what Cedar's own diagnostic decision would otherwise have been. G1 checkpoint scenario: 'policy/evaluation error'. Proves an authorization failure can never be converted to ALLOW.",
+  "request": {
+    "execution_id": "exec-g1-0007",
+    "workspace_id": "ws-g1-demo",
+    "identity": {
+      "agent_id": "agent-broken-01",
+      "on_behalf_of": "",
+      "roles": ["broken"]
+    },
+    "tool": {
+      "backend_id": "toy-mcp-backend",
+      "name": "issue_refund"
+    },
+    "classification": {
+      "known": true,
+      "risk": "write"
+    },
+    "arguments": {}
+  },
+  "expect": {
+    "http_status": 200,
+    "decision": "DENY",
+    "reason": "evaluation_error",
+    "policy_version_nonempty": true,
+    "backend_reached": false
+  }
+}

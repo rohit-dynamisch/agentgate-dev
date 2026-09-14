@@ -1,0 +1,37 @@
+# deploy/g2/identity-mapping.yaml — G2 Identity Mapping Configuration (G2-DO-02)
+#
+# Reproducible non-secret example configuration for mapping gateway-validated
+# claims to AgentGate MappedIdentity.
+#
+# INVARIANTS:
+# 1. No credentials, tokens, or JWT signing keys are configured here.
+#    Tokens are verified upstream by agentgateway (or an edge reverse proxy).
+#    AgentGate receives only pre-validated claim maps.
+# 2. Claim names are fully configurable — never hardcoded into AgentGate.
+# 3. Missing required claims fail closed.
+
+identity_mapping:
+  # The claim whose value becomes the agent's authoritative identifier.
+  # Must be a non-empty string in the claims map.
+  agent_id_claim: "sub"
+
+  # The claim containing space-separated role names.
+  # Must resolve to at least one non-empty role.
+  roles_claim: "roles"
+
+  # The optional claim representing delegated human identity.
+  # When absent in incoming claims, on_behalf_of is left empty.
+  # If present and equal to agent_id, mapping fails closed (ambiguous_identity).
+  on_behalf_of_claim: "obo"
+
+# Alternative deployment profiles (for multi-tenant or enterprise IdP)
+profiles:
+  okta_oidc:
+    agent_id_claim: "cid"
+    roles_claim: "groups"
+    on_behalf_of_claim: "preferred_username"
+
+  azure_ad:
+    agent_id_claim: "oid"
+    roles_claim: "roles"
+    on_behalf_of_claim: "upn"

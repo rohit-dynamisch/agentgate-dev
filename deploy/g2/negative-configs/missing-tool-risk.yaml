@@ -1,0 +1,8 @@
+# Negative config: tool is registered with empty/missing risk
+# Expected behavior: tool registration validation MUST fail closed.
+tools:
+  - backend_id: "backend-fixture"
+    tool_name: "list_files"
+    known: true
+    risk: ""
+    registered_fingerprint: "53582d9d7229826e75097ac478787ca403c94ce74e4611571be1b03c706952cc"

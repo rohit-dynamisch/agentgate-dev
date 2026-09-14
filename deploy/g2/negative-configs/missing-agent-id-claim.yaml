@@ -1,0 +1,5 @@
+# Negative config: agent_id_claim is missing/empty
+# Expected behavior: configuration validation MUST fail closed at startup.
+identity_mapping:
+  agent_id_claim: ""
+  roles_claim: "roles"

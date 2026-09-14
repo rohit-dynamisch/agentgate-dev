@@ -1,6 +1,6 @@
 # AgentGate — Open Decisions
 
-**Status:** Active — O-001, O-003–O-007 open; O-002 resolved
+**Status:** Active — O-001, O-003–O-005, O-007, O-008 open; O-002, O-006 resolved
 **Date:** 2026-08-22
 
 This file contains unresolved questions that may affect architecture or implementation.
@@ -47,14 +47,6 @@ A fingerprint change should cause governance review and deny-by-default behavior
 
 **Current action:** Design during tool-governance phase.
 
-## O-006 — Argument authorization model
-
-**Priority:** High
-
-Relevant tool arguments must be exposed to policy evaluation without turning arbitrary tool input into an uncontrolled policy surface.
-
-**Current action:** Define typed per-tool policy-input declarations during tool-governance design.
-
 ## O-007 — AgentGate execution identity
 
 **Priority:** Medium/High
@@ -64,6 +56,37 @@ Current MCP assumptions about protocol sessions must not be carried into the des
 AgentGate should own an execution/correlation identifier for audit, future aggregate controls, and request grouping.
 
 **Current action:** Define as part of the request-context model.
+
+## O-008 — ext_authz transport mapping to the decision.Request contract
+
+**Priority:** High
+
+**Found:** G1 checkpoint, Gateway/MCP workstream (`g1/gateway-mcp`), confirmed against the real
+`agentgateway` binary once available (`gateway/README.md`, "Real-binary verification").
+
+agentgateway's documented `ext_authz` mechanisms — the HTTP protocol variant
+(`path`/`addRequestHeaders`/`includeResponseHeaders`/`redirect`, all CEL expressions operating on
+URL/headers only) and the gRPC variant (Envoy's generic `CheckRequest`/`CheckResponse`) — have no
+documented way to construct an arbitrary JSON request body. Neither natively produces the
+`decision.Request` shape (`execution_id`, `workspace_id`, `identity`, `tool`, `classification`,
+`arguments`) this project's frozen G1 contract defines. That JSON shape is an
+application/testing contract for the decision core, not necessarily agentgateway's native
+`ext_authz` wire protocol.
+
+The production mechanism by which the real `internal/authz` (not yet built, Day 3/8) receives an
+`ext_authz` callout and translates it into a `decision.Request` is undesigned. The most plausible
+approach — `internal/authz` parsing the raw included request body itself (via `internal/mcpreq`,
+per the repo-layout notes in `docs/PROJECT_DEFINITION.md §11`) rather than agentgateway's config
+DSL assembling AgentGate's bespoke JSON — is a hypothesis, not a decision.
+
+**Current action:** Design `internal/authz`'s ext_authz-to-`decision.Request` translation
+mechanism during the Day 3/8 gateway-integration task. Do not have Gateway/MCP or any other
+workstream invent a gateway-side adapter/shim to bridge this in the meantime — that would create a
+second, competing contract-mapping outside the component that should own it.
+
+**Allowed development approach:** Keep using the direct-HTTP mock/harness pattern already
+established (`agentgate/cmd/g1-mock-authz`, `gateway/harness`) for contract-level testing until
+`internal/authz` exists to close this gap for real.
 
 ## Resolved
 
@@ -85,6 +108,47 @@ request closed. Recorded as a binding invariant in
 technology/format is an implementation decision for Day 7 of
 `docs/PHASES/AGENTGATE_V1_15_DAY_PRODUCTION_PLAN.md`, not an open invariant question — only the
 *mechanism*, not the *guarantee*, remains to be built.
+
+### O-006 — Argument authorization model (resolved 2026-09-13, G2 checkpoint)
+
+**Priority was:** High
+
+**Original question:** how to expose relevant tool arguments to policy evaluation without turning
+arbitrary tool input into an uncontrolled policy surface.
+
+**Resolution:** per-tool typed declaration registry (`internal/argdecl`). Arbitrary argument
+passthrough was rejected in favor of an explicit whitelist model:
+
+- Each tool declares its policy-visible arguments via a `DeclarationSet` specifying name, type
+  (`string`, `int64`, `bool`), and required/optional status.
+- Only declared arguments are extracted and resolved into `decision.Request.Arguments`.
+- **Undeclared arguments** are excluded from policy input — they are structurally invisible to Cedar.
+- **Explicit JSON `null`** is rejected (not coerced to a zero value), preventing type-confusion bypasses.
+- **Missing required arguments** fail closed (request denied).
+- **Omitted optional arguments** are absent rather than fabricated with defaults.
+- Resolution produces deterministic typed `AttributeValue` entries that feed the frozen G1
+  `decision.Request` contract.
+
+**Why arbitrary passthrough was rejected:** passing raw MCP `arguments` wholesale into Cedar
+would create an uncontrolled policy surface — any new or renamed tool argument would silently
+become a policy input without governance review. The declaration registry ensures that only
+explicitly approved attributes influence authorization decisions.
+
+**Implementation location:** `agentgate/internal/argdecl/` (declaration types, resolution logic,
+and comprehensive tests). Context assembly adapter at `agentgate/internal/contextassembly/`
+populates `decision.Request.Arguments` from resolved declarations.
+
+**Scope note:** closing O-006 resolves the *policy-input exposure model* — which arguments become
+policy-visible and how. It does not mean argument-level authorization is a fully deployed business
+authorization system; Cedar policy semantics determine the eventual authorization decisions
+once the declared arguments reach policy evaluation.
+
+**Affected architecture documents:**
+- `docs/SECURITY/PRODUCTION-INVARIANTS.md` §6 (argument-authorization boundary invariant)
+- `docs/PHASES/G2_WORKSTREAMS/G2_CLOSURE_SUMMARY.md` §1 (W1), §4 (O-006 status)
+- `docs/PHASES/G2_WORKSTREAMS/results/GO_BACKEND_G2_REPORT.md` §Open Decisions
+- `agentgate/internal/decision/types.go` (AttributeValue type, historical O-006 comment)
+- `agentgate/internal/decision/doc.go` (historical O-006 reference)
 
 ## Decision protocol
 

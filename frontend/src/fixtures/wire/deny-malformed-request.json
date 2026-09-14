@@ -1,0 +1,6 @@
+{
+  "decision": "DENY",
+  "reason": "malformed_request",
+  "message": "argument \"amount\": invalid or zero-value attribute",
+  "execution_id": "exec-1002"
+}

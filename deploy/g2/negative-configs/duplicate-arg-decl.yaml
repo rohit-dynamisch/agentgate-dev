@@ -1,0 +1,15 @@
+# Negative config: duplicate argument declaration names
+# Expected behavior: argument declaration validation MUST fail closed.
+tools:
+  - backend_id: "backend-fixture"
+    tool_name: "list_files"
+    known: true
+    risk: "read"
+    registered_fingerprint: "53582d9d7229826e75097ac478787ca403c94ce74e4611571be1b03c706952cc"
+    argument_declarations:
+      - name: "path"
+        type: "string"
+        required: true
+      - name: "path"
+        type: "string"
+        required: false

@@ -1,0 +1,30 @@
+{
+  "name": "unknown_tool",
+  "category": "unknown_tool",
+  "description": "classification.known is false -- the tool has not been classified by an operator. decision.Engine denies unconditionally before Cedar is consulted, regardless of how permissive the caller's roles are. G1 checkpoint scenario: 'unknown/unclassified tool'. Proves an unknown tool cannot become an implicit ALLOW even for an admin identity.",
+  "request": {
+    "execution_id": "exec-g1-0005",
+    "workspace_id": "ws-g1-demo",
+    "identity": {
+      "agent_id": "agent-admin-01",
+      "on_behalf_of": "",
+      "roles": ["admin"]
+    },
+    "tool": {
+      "backend_id": "toy-mcp-backend",
+      "name": "brand_new_undiscovered_tool"
+    },
+    "classification": {
+      "known": false,
+      "risk": ""
+    },
+    "arguments": {}
+  },
+  "expect": {
+    "http_status": 200,
+    "decision": "DENY",
+    "reason": "unknown_tool",
+    "policy_version_nonempty": false,
+    "backend_reached": false
+  }
+}
