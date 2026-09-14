@@ -16,6 +16,7 @@ import (
 
 	"github.com/Dynamisch-LLC/agentgate/internal/config"
 	"github.com/Dynamisch-LLC/agentgate/internal/govapi"
+	"github.com/Dynamisch-LLC/agentgate/internal/governanceintegration"
 	"github.com/Dynamisch-LLC/agentgate/internal/httpserver"
 	"github.com/Dynamisch-LLC/agentgate/internal/logging"
 	"github.com/Dynamisch-LLC/agentgate/internal/policymanager"
@@ -64,7 +65,8 @@ func run() error {
 	}
 
 	policyMgr := policymanager.New(store)
-	govHandler := govapi.NewHandler(policyMgr, cfg.AdminToken)
+	govIntegration := governanceintegration.NewGovernanceDecisionService(policyMgr)
+	govHandler := govapi.NewHandler(policyMgr, cfg.AdminToken, govIntegration)
 	govHandler.RegisterRoutes(srv.Mux())
 
 	if err := srv.Start(); err != nil {

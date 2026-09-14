@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Dynamisch-LLC/agentgate/internal/decision"
+	"github.com/Dynamisch-LLC/agentgate/internal/governanceintegration"
 	"github.com/Dynamisch-LLC/agentgate/internal/policy"
 	"github.com/Dynamisch-LLC/agentgate/internal/policymanager"
 	"github.com/Dynamisch-LLC/agentgate/internal/policystore"
@@ -13,15 +15,18 @@ import (
 
 // Handler serves policy governance REST endpoints.
 type Handler struct {
-	manager    *policymanager.Manager
-	adminToken string
+	manager        *policymanager.Manager
+	govIntegration *governanceintegration.GovernanceDecisionService
+	adminToken     string
 }
 
 // NewHandler constructs a new Handler.
-func NewHandler(manager *policymanager.Manager, adminToken string) *Handler {
+// govIntegration may be nil if dry-run compare is not needed (backward compatible).
+func NewHandler(manager *policymanager.Manager, adminToken string, govIntegration *governanceintegration.GovernanceDecisionService) *Handler {
 	return &Handler{
-		manager:    manager,
-		adminToken: adminToken,
+		manager:        manager,
+		govIntegration: govIntegration,
+		adminToken:     adminToken,
 	}
 }
 
@@ -35,6 +40,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/workspaces/{workspace_id}/policies/rollback", protect(h.handleRollback))
 	mux.HandleFunc("POST /api/v1/workspaces/{workspace_id}/policies/{version}/activate", protect(h.handleActivate))
 	mux.HandleFunc("POST /api/v1/workspaces/{workspace_id}/policies/{version}/preview", protect(h.handlePreview))
+	mux.HandleFunc("POST /api/v1/workspaces/{workspace_id}/policies/{version}/dryrun", protect(h.handleDryRunCompare))
 	mux.HandleFunc("GET /api/v1/workspaces/{workspace_id}/policies/{version}", protect(h.handleGetPolicy))
 	mux.HandleFunc("GET /api/v1/workspaces/{workspace_id}/policies", protect(h.handleListPolicies))
 	mux.HandleFunc("POST /api/v1/workspaces/{workspace_id}/policies", protect(h.handleCreateCandidate))
@@ -246,6 +252,78 @@ func (h *Handler) handlePreview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, PreviewResponse{
 		Version: version,
 		Results: results,
+	})
+}
+
+func (h *Handler) handleDryRunCompare(w http.ResponseWriter, r *http.Request) {
+	workspaceID := r.PathValue("workspace_id")
+	version := r.PathValue("version")
+	if workspaceID == "" || version == "" {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "workspace_id and version required")
+		return
+	}
+
+	if h.govIntegration == nil {
+		writeError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "governance integration not configured")
+		return
+	}
+
+	var req DryRunCompareRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "malformed request body")
+		return
+	}
+
+	decRequests := make([]decision.Request, 0, len(req.SampleRequests))
+	for _, sample := range req.SampleRequests {
+		decRequests = append(decRequests, decision.Request{
+			ExecutionID: sample.ExecutionID,
+			WorkspaceID: workspaceID,
+			Identity: decision.Identity{
+				AgentID:    sample.PrincipalID,
+				Roles:      sample.PrincipalRoles,
+				OnBehalfOf: sample.OnBehalfOf,
+			},
+			Tool: decision.ToolRef{
+				BackendID: sample.BackendID,
+				Name:      sample.ToolName,
+			},
+			Classification: decision.ToolClassification{
+				Known: true,
+				Risk:  sample.Risk,
+			},
+		})
+	}
+
+	comparisons, err := h.govIntegration.DryRunCompare(r.Context(), workspaceID, version, decRequests)
+	if err != nil {
+		if errors.Is(err, policystore.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "policy version not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to perform dry-run comparison")
+		return
+	}
+
+	results := make([]DryRunCompareResult, 0, len(comparisons))
+	for _, comp := range comparisons {
+		changed := comp.ActiveResult.Decision != comp.CandidateResult.Decision ||
+			comp.ActiveResult.Reason != comp.CandidateResult.Reason
+
+		results = append(results, DryRunCompareResult{
+			ActiveDecision:    string(comp.ActiveResult.Decision),
+			ActiveReason:      string(comp.ActiveResult.Reason),
+			ActiveVersion:     comp.ActiveResult.PolicyVersion,
+			CandidateDecision: string(comp.CandidateResult.Decision),
+			CandidateReason:   string(comp.CandidateResult.Reason),
+			CandidateVersion:  comp.CandidateResult.PolicyVersion,
+			Changed:           changed,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, DryRunCompareResponse{
+		CandidateVersion: version,
+		Results:          results,
 	})
 }
 

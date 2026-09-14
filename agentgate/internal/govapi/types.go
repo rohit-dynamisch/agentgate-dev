@@ -83,3 +83,36 @@ type ErrorDetail struct {
 type ErrorResponse struct {
 	Error ErrorDetail `json:"error"`
 }
+
+// DryRunSampleRequest is one decision request input for dry-run comparison.
+type DryRunSampleRequest struct {
+	ExecutionID    string   `json:"execution_id"`
+	PrincipalID    string   `json:"principal_id"`
+	PrincipalRoles []string `json:"principal_roles"`
+	OnBehalfOf     string   `json:"on_behalf_of,omitempty"`
+	BackendID      string   `json:"backend_id"`
+	ToolName       string   `json:"tool_name"`
+	Risk           string   `json:"risk"`
+}
+
+// DryRunCompareRequest carries sample decision requests for comparison.
+type DryRunCompareRequest struct {
+	SampleRequests []DryRunSampleRequest `json:"sample_requests"`
+}
+
+// DryRunCompareResult pairs the active and candidate outcomes.
+type DryRunCompareResult struct {
+	ActiveDecision    string `json:"active_decision"`
+	ActiveReason      string `json:"active_reason"`
+	ActiveVersion     string `json:"active_policy_version"`
+	CandidateDecision string `json:"candidate_decision"`
+	CandidateReason   string `json:"candidate_reason"`
+	CandidateVersion  string `json:"candidate_policy_version"`
+	Changed           bool   `json:"changed"`
+}
+
+// DryRunCompareResponse aggregates comparison results.
+type DryRunCompareResponse struct {
+	CandidateVersion string                `json:"candidate_version"`
+	Results          []DryRunCompareResult  `json:"results"`
+}

@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Dynamisch-LLC/agentgate/internal/fixturepolicy"
+	"github.com/Dynamisch-LLC/agentgate/internal/governanceintegration"
 	"github.com/Dynamisch-LLC/agentgate/internal/policymanager"
 	"github.com/Dynamisch-LLC/agentgate/internal/policystore"
 )
@@ -14,7 +16,8 @@ import (
 func setupTestServer(adminToken string) (*httptest.Server, *policymanager.Manager) {
 	store := policystore.NewMemoryStore()
 	mgr := policymanager.New(store)
-	handler := NewHandler(mgr, adminToken)
+	govIntegration := governanceintegration.NewGovernanceDecisionService(mgr)
+	handler := NewHandler(mgr, adminToken, govIntegration)
 
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
@@ -236,3 +239,114 @@ func TestGovAPI_Lifecycle(t *testing.T) {
 		t.Fatalf("expected 404 for unknown rollback version, got %d", respRbBad.StatusCode)
 	}
 }
+
+func TestGovAPI_DryRunCompare(t *testing.T) {
+	adminToken := "test-admin-key"
+	ts, _ := setupTestServer(adminToken)
+	defer ts.Close()
+
+	authHeaders := func(req *http.Request) {
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	ws := "ws-dryrun"
+
+	// 1. Create candidate A and activate
+	createBodyA, _ := json.Marshal(CreateCandidateRequest{
+		Content:     fixturepolicy.CedarSource,
+		Description: "policy A - reader can read",
+	})
+	reqA, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/workspaces/"+ws+"/policies", bytes.NewReader(createBodyA))
+	authHeaders(reqA)
+	respA, err := http.DefaultClient.Do(reqA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recA policystore.PolicyRecord
+	json.NewDecoder(respA.Body).Decode(&recA)
+	respA.Body.Close()
+
+	reqAct, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/workspaces/"+ws+"/policies/"+recA.Version+"/activate", nil)
+	authHeaders(reqAct)
+	respAct, err := http.DefaultClient.Do(reqAct)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respAct.Body.Close()
+
+	// 2. Create candidate B - forbid all
+	createBodyB, _ := json.Marshal(CreateCandidateRequest{
+		Content:     "forbid(principal, action, resource);",
+		Description: "policy B - forbid all",
+	})
+	reqB, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/workspaces/"+ws+"/policies", bytes.NewReader(createBodyB))
+	authHeaders(reqB)
+	respB, err := http.DefaultClient.Do(reqB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recB policystore.PolicyRecord
+	json.NewDecoder(respB.Body).Decode(&recB)
+	respB.Body.Close()
+
+	// 3. Dry-run compare against candidate B
+	dryRunReqBody, _ := json.Marshal(DryRunCompareRequest{
+		SampleRequests: []DryRunSampleRequest{
+			{
+				ExecutionID:    "exec-dry-1",
+				PrincipalID:    "agent-1",
+				PrincipalRoles: []string{fixturepolicy.RoleReader},
+				BackendID:      "backend-1",
+				ToolName:       "read-tool",
+				Risk:           fixturepolicy.RiskRead,
+			},
+		},
+	})
+	reqDryRun, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/workspaces/"+ws+"/policies/"+recB.Version+"/dryrun", bytes.NewReader(dryRunReqBody))
+	authHeaders(reqDryRun)
+	respDryRun, err := http.DefaultClient.Do(reqDryRun)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer respDryRun.Body.Close()
+
+	if respDryRun.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 for dryrun, got %d", respDryRun.StatusCode)
+	}
+
+	var dryRunResp DryRunCompareResponse
+	if err := json.NewDecoder(respDryRun.Body).Decode(&dryRunResp); err != nil {
+		t.Fatal(err)
+	}
+
+	if dryRunResp.CandidateVersion != recB.Version {
+		t.Fatalf("candidate version mismatch: expected %s, got %s", recB.Version, dryRunResp.CandidateVersion)
+	}
+	if len(dryRunResp.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(dryRunResp.Results))
+	}
+	res := dryRunResp.Results[0]
+	if res.ActiveDecision != "ALLOW" {
+		t.Fatalf("expected active decision ALLOW, got %s", res.ActiveDecision)
+	}
+	if res.CandidateDecision != "DENY" {
+		t.Fatalf("expected candidate decision DENY, got %s", res.CandidateDecision)
+	}
+	if !res.Changed {
+		t.Fatal("expected Changed == true")
+	}
+
+	// 4. Dry-run against nonexistent version -> 404
+	reqDryRun404, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/workspaces/"+ws+"/policies/nonexistent-hash/dryrun", bytes.NewReader(dryRunReqBody))
+	authHeaders(reqDryRun404)
+	resp404, err := http.DefaultClient.Do(reqDryRun404)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp404.Body.Close()
+	if resp404.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404 for unknown version, got %d", resp404.StatusCode)
+	}
+}
+
