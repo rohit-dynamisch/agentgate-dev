@@ -1,0 +1,80 @@
+# deploy/g4/docker-compose.yml — G4 Integrated Governance-to-Decision Topology
+#
+# NOTE ON ARCHITECTURAL BOUNDARY:
+# O-008: OPEN — no agentgateway/MCP E2E integration in Gate G4.
+# This topology tests the complete governance-to-decision pipeline
+# (candidate -> validate -> dry-run -> activate -> decision change -> rollback -> decision restore).
+# Real agentgateway/MCP proxying and enforcement remains Gate G6 / O-008.
+#
+# Services:
+#   [PostgreSQL 16] <--- [AgentGate Core (:8090)] <--- [QA Probe / Governance API]
+#
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: g4-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: agentgate
+      POSTGRES_PASSWORD: agentgate-dev-password
+      POSTGRES_DB: agentgate_db
+    volumes:
+      - g4_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentgate -d agentgate_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 2s
+    networks:
+      - g4net
+
+  agentgate:
+    build:
+      context: ../..
+      dockerfile: deploy/g3/Dockerfile.agentgate
+    image: agentgate/agentgate:g4
+    container_name: g4-agentgate
+    ports:
+      - "8090:8090"
+    environment:
+      AGENTGATE_HTTP_ADDR: ":8090"
+      AGENTGATE_ENV: "development"
+      AGENTGATE_LOG_LEVEL: "debug"
+      AGENTGATE_ADMIN_TOKEN: "agentgate-admin-secret-dev"
+      AGENTGATE_DATABASE_URL: "postgres://agentgate:agentgate-dev-password@postgres:5432/agentgate_db?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - g4net
+
+  qa-probe:
+    image: golang:1.24
+    container_name: g4-qa-probe
+    profiles: ["qa-manual"]
+    working_dir: /src/agentgate
+    volumes:
+      - ../..:/src:ro
+    environment:
+      AGENTGATE_TEST_POSTGRES_URL: "postgres://agentgate:agentgate-dev-password@postgres:5432/agentgate_db?sslmode=disable"
+      AGENTGATE_BASE_URL: "http://agentgate:8090"
+      AGENTGATE_ADMIN_TOKEN: "agentgate-admin-secret-dev"
+    command: ["go", "test", "-v", "./qa/g4integration/..."]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      agentgate:
+        condition: service_started
+    networks:
+      - g4net
+
+networks:
+  g4net:
+    driver: bridge
+
+volumes:
+  g4_pgdata:
