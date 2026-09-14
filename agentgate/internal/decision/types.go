@@ -1,5 +1,7 @@
 package decision
 
+import "strconv"
+
 // Decision is the outcome of an authorization request. There are exactly
 // two values — there is no third "error" decision. Every failure path
 // (invalid identity, unknown tool, malformed input, a Cedar evaluation
@@ -137,6 +139,20 @@ func IntAttr(v int64) AttributeValue     { return AttributeValue{kind: attribute
 func BoolAttr(v bool) AttributeValue     { return AttributeValue{kind: attributeKindBool, b: v} }
 
 func (a AttributeValue) valid() bool { return a.kind != attributeKindInvalid }
+
+// String returns the string representation of the AttributeValue, implementing fmt.Stringer.
+func (a AttributeValue) String() string {
+	switch a.kind {
+	case attributeKindString:
+		return a.str
+	case attributeKindInt:
+		return strconv.FormatInt(a.num, 10)
+	case attributeKindBool:
+		return strconv.FormatBool(a.b)
+	default:
+		return ""
+	}
+}
 
 // Request is AgentGate's typed authorization request — the stable domain
 // contract the decision core, and everything built on top of it later,
