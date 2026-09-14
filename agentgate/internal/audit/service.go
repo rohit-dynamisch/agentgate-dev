@@ -15,6 +15,11 @@ type DecisionEvaluator interface {
 	EvaluateWithActivePolicy(ctx context.Context, workspaceID string, req decision.Request) (decision.Result, error)
 }
 
+// ProvenanceProvider retrieves the authoritative policy version and content hash for a workspace.
+type ProvenanceProvider interface {
+	GetActiveProvenance(workspaceID string) (version string, hash string, err error)
+}
+
 // AuditedDecisionService intercepts every authorization decision and policy mutation,
 // ensuring strict redaction, deterministic canonicalization, cryptographic hash chaining,
 // and durable audit logging before an ALLOW decision can ever be returned to the client (O-002).
@@ -70,10 +75,32 @@ func (s *AuditedDecisionService) Evaluate(ctx context.Context, req decision.Requ
 		res = noPolicy.Evaluate(req)
 	}
 
-	// 2. Redact arguments prior to canonicalization or persistence
+	// 2. Resolve authoritative policy version and policy hash
+	var policyVersion string
+	var policyHash string
+	if res.PolicyVersion != "" {
+		// Cedar was reached. In G1 decision.Engine, res.PolicyVersion is the SHA-256
+		// hash of the evaluated policy source bytes (e.policy.Version()).
+		policyHash = res.PolicyVersion
+		policyVersion = res.PolicyVersion
+
+		// If the evaluator implements ProvenanceProvider, retrieve the active policy version identifier
+		if prov, ok := s.evaluator.(ProvenanceProvider); ok {
+			if v, h, err := prov.GetActiveProvenance(req.WorkspaceID); err == nil && v != "" {
+				policyVersion = v
+				if h != "" {
+					policyHash = h
+				}
+			}
+		}
+		// Reflect the active policy version identifier in the returned result
+		res.PolicyVersion = policyVersion
+	}
+
+	// 3. Redact arguments prior to canonicalization or persistence
 	redactedArgs := s.redactor.RedactArguments(req.Tool.Name, req.Arguments)
 
-	// 3. Serialize append operation to maintain sequential chain
+	// 4. Serialize append operation to maintain sequential chain
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -96,8 +123,8 @@ func (s *AuditedDecisionService) Evaluate(ctx context.Context, req decision.Requ
 		ToolBackendID:       req.Tool.BackendID,
 		ToolName:            req.Tool.Name,
 		ToolRisk:            req.Classification.Risk,
-		PolicyVersion:       res.PolicyVersion,
-		PolicyHash:          res.PolicyVersion,
+		PolicyVersion:       policyVersion,
+		PolicyHash:          policyHash,
 		RedactedArguments:   redactedArgs,
 		PrevHash:            prevHash,
 	}

@@ -2,6 +2,8 @@ package g5audit_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -54,7 +56,11 @@ func TestQA_DurableAllow(t *testing.T) {
 	ctx := context.Background()
 	ws := "ws-qa-allow"
 
-	cand, err := env.pMgr.CreateCandidate(ctx, ws, fixturepolicy.CedarSource, "permit")
+	normalVersion := "v1.0.0"
+	h := sha256.Sum256([]byte(fixturepolicy.CedarSource))
+	expectedHash := hex.EncodeToString(h[:])
+
+	cand, err := env.pMgr.CreateCandidateWithVersion(ctx, ws, normalVersion, fixturepolicy.CedarSource, "permit")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,8 +94,17 @@ func TestQA_DurableAllow(t *testing.T) {
 	if record.Decision != "ALLOW" {
 		t.Fatalf("expected audit decision ALLOW, got %s", record.Decision)
 	}
-	if record.PolicyVersion != cand.Version {
-		t.Fatalf("expected policy version %s, got %s", cand.Version, record.PolicyVersion)
+	// Provenance: exact evaluated policy version
+	if record.PolicyVersion != normalVersion {
+		t.Fatalf("expected policy version %s, got %s", normalVersion, record.PolicyVersion)
+	}
+	// Provenance: exact SHA-256 of evaluated policy bytes
+	if record.PolicyHash != expectedHash {
+		t.Fatalf("expected policy hash %s, got %s", expectedHash, record.PolicyHash)
+	}
+	// Provenance invariant: policy_hash must be distinct from normal version identifier
+	if record.PolicyHash == record.PolicyVersion {
+		t.Fatalf("expected policy_hash != policy_version; got identical %s", record.PolicyHash)
 	}
 	if record.ExecutionID != "exec-qa-allow-1" {
 		t.Fatalf("expected execution id exec-qa-allow-1, got %s", record.ExecutionID)
@@ -157,8 +172,12 @@ func TestQA_PolicyChangePreservesOldProvenance(t *testing.T) {
 	ctx := context.Background()
 	ws := "ws-qa-provenance"
 
+	v1ID := "v1.0.0"
+	h1 := sha256.Sum256([]byte(fixturepolicy.CedarSource))
+	expectedHash1 := hex.EncodeToString(h1[:])
+
 	// Version 1
-	cand1, _ := env.pMgr.CreateCandidate(ctx, ws, fixturepolicy.CedarSource, "v1")
+	cand1, _ := env.pMgr.CreateCandidateWithVersion(ctx, ws, v1ID, fixturepolicy.CedarSource, "v1")
 	env.pMgr.Activate(ctx, ws, cand1.Version)
 
 	req1 := decision.Request{
@@ -174,8 +193,12 @@ func TestQA_PolicyChangePreservesOldProvenance(t *testing.T) {
 	}
 
 	// Version 2 (modified policy)
+	v2ID := "v2.0.0"
 	modifiedCedar := fixturepolicy.CedarSource + "\n// modification comment\n"
-	cand2, _ := env.pMgr.CreateCandidate(ctx, ws, modifiedCedar, "v2")
+	h2 := sha256.Sum256([]byte(modifiedCedar))
+	expectedHash2 := hex.EncodeToString(h2[:])
+
+	cand2, _ := env.pMgr.CreateCandidateWithVersion(ctx, ws, v2ID, modifiedCedar, "v2")
 	env.pMgr.Activate(ctx, ws, cand2.Version)
 
 	req2 := decision.Request{
@@ -190,23 +213,44 @@ func TestQA_PolicyChangePreservesOldProvenance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Verify Record 1 still retains cand1.Version
-	rec1, err := env.aStore.GetRecordBySequence(ctx, ws, 1)
+	records, err := env.aStore.ListRecords(ctx, ws, 20)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if rec1.PolicyVersion != cand1.Version {
-		t.Fatalf("PROVENANCE DRIFT: expected record 1 to retain version %s, got %s", cand1.Version, rec1.PolicyVersion)
 	}
 
-	// Verify Record 2 (which is sequence 3 due to mutation event at seq 2) retains cand2.Version
-	records, err := env.aStore.ListRecords(ctx, ws, 10)
-	if err != nil {
-		t.Fatal(err)
+	var dec1, dec2 *audit.StoredRecord
+	for i := range records {
+		if records[i].ExecutionID == "exec-v1" {
+			dec1 = &records[i]
+		}
+		if records[i].ExecutionID == "exec-v2" {
+			dec2 = &records[i]
+		}
 	}
-	// The newest record is req2
-	if records[0].PolicyVersion != cand2.Version {
-		t.Fatalf("expected newest record to have version %s, got %s", cand2.Version, records[0].PolicyVersion)
+	if dec1 == nil || dec2 == nil {
+		t.Fatalf("expected durable decision records for exec-v1 and exec-v2; total records: %d", len(records))
+	}
+
+	// Verify Decision 1 retains v1ID and expectedHash1
+	if dec1.PolicyVersion != v1ID {
+		t.Fatalf("PROVENANCE DRIFT: expected decision 1 to retain version %s, got %s", v1ID, dec1.PolicyVersion)
+	}
+	if dec1.PolicyHash != expectedHash1 {
+		t.Fatalf("PROVENANCE HASH DRIFT: expected decision 1 to retain hash %s, got %s", expectedHash1, dec1.PolicyHash)
+	}
+	if dec1.PolicyHash == dec1.PolicyVersion {
+		t.Fatalf("expected policy_hash != policy_version on decision 1")
+	}
+
+	// Verify Decision 2 retains v2ID and expectedHash2
+	if dec2.PolicyVersion != v2ID {
+		t.Fatalf("expected decision 2 to have version %s, got %s", v2ID, dec2.PolicyVersion)
+	}
+	if dec2.PolicyHash != expectedHash2 {
+		t.Fatalf("expected decision 2 to have hash %s, got %s", expectedHash2, dec2.PolicyHash)
+	}
+	if dec2.PolicyHash == dec2.PolicyVersion {
+		t.Fatalf("expected policy_hash != policy_version on decision 2")
 	}
 }
 
