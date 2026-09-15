@@ -1,0 +1,23 @@
+# AgentGate — G6 agentgateway configuration (Real MCP Enforcement Gate)
+# Pinned to cr.agentgateway.dev/agentgateway:v1.4.0@sha256:771afaf093065477fa296eb90dcb618a0300165f12a32f80bbdd1427fab900ec
+
+gateways:
+  default:
+    port: 3000
+
+routes:
+  - policies:
+      extAuthz:
+        host: probe-authz:9001
+        policies:
+          http:
+            requestTimeout: 5s
+        protocol:
+          grpc: {}
+        failureMode: deny
+        includeRequestBody:
+          maxRequestBytes: 1048576
+          allowPartialMessage: false
+          packAsBytes: false
+    backends:
+      - host: probe-mcp:9100

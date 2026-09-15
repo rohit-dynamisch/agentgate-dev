@@ -1,0 +1,66 @@
+name: agentgate-g6
+
+services:
+  agentgateway:
+    image: cr.agentgateway.dev/agentgateway:v1.4.0@sha256:771afaf093065477fa296eb90dcb618a0300165f12a32f80bbdd1427fab900ec
+    container_name: g6-agentgateway
+    command: ["-f", "/etc/agentgateway/config.yaml"]
+    volumes:
+      - ./agentgateway.yaml:/etc/agentgateway/config.yaml:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      probe-authz:
+        condition: service_healthy
+      probe-mcp:
+        condition: service_healthy
+    networks:
+      - g6net
+
+  probe-authz:
+    build:
+      context: ./probe-authz
+      dockerfile: Dockerfile
+    image: agentgate/g6-probe-authz:dev
+    container_name: g6-probe-authz
+    ports:
+      - "9001:9001"
+      - "9002:9002"
+    environment:
+      G6_AUTHZ_MODE: "allow"
+      G6_AUTHZ_GRPC_PORT: "9001"
+      G6_AUTHZ_HTTP_PORT: "9002"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9002/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+      start_period: 2s
+    networks:
+      - g6net
+
+  probe-mcp:
+    build:
+      context: ./probe-mcp
+      dockerfile: Dockerfile
+    image: agentgate/g6-probe-mcp:dev
+    container_name: g6-probe-mcp
+    ports:
+      - "9100:9100"
+      - "9101:9101"
+    environment:
+      G6_MCP_PORT: "9100"
+      G6_COUNT_PORT: "9101"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9101/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+      start_period: 2s
+    networks:
+      - g6net
+
+networks:
+  g6net:
+    name: g6net
+    driver: bridge

@@ -125,28 +125,17 @@ docs/
 │   │                                             produced the decision core now frozen as the G1
 │   │                                             contract
 │   │
-│   ├── G1_WORKSTREAMS/                          [CLOSED CHECKPOINT — G1: PASS/CLOSED/FROZEN,
-│   │   │                                         2026-09-12] durable record of the first
-│   │   │                                         checkpoint; see docs/README.md kind 4 for the
-│   │   │                                         standard shape every checkpoint folder follows
-│   │   ├── 00_G1_CHECKPOINT_REFERENCE.md        the shared definition-of-done all 5 workstreams
-│   │   │                                         were held to
-│   │   ├── 01_GO_BACKEND_G1_DETAILED.md         per-workstream task tickets (as assigned)
-│   │   ├── 02_GATEWAY_MCP_G1_DETAILED.md
-│   │   ├── 03_FRONTEND_UI_G1_DETAILED.md
-│   │   ├── 04_QA_SECURITY_G1_DETAILED.md
-│   │   ├── 05_DEVOPS_G1_DETAILED.md
-│   │   ├── GO_BACKEND_G1_CONTRACT.md            [durable, frozen] the canonical
-│   │                                             decision.Request/Result wire contract — the
-│   │                                             single most-referenced doc from G1 onward
-│   │   ├── QA_SECURITY_G1_EVIDENCE.md           [durable] independent black-box test evidence +
-│   │                                             security findings (incl. corrective-closeout
-│   │                                             addendum)
-│   │   ├── DEVOPS_G1_ENVIRONMENT.md             [durable] reproducible environment/topology
-│   │                                             reference, incl. real-container verification
-│   │   └── results/                             GITIGNORED — ephemeral reports + condensed code
-│   │                                             digests (one pair per workstream) used only for
-│   │                                             the human↔ChatGPT review loop
+│   ├── G1_WORKSTREAMS/                          [CLOSED CHECKPOINT — G1: PASS/CLOSED/FROZEN, 2026-09-12]
+│   ├── G2_WORKSTREAMS/                          [CLOSED CHECKPOINT — G2: PASS/CLOSED/FROZEN, 2026-09-13]
+│   ├── G3_WORKSTREAMS/                          [CLOSED CHECKPOINT — G3: PASS/CLOSED/FROZEN, 2026-09-13]
+│   ├── G4_WORKSTREAMS/                          [CLOSED CHECKPOINT — G4: PASS/CLOSED/FROZEN, 2026-09-14]
+│   ├── G5_WORKSTREAMS/                          [CLOSED CHECKPOINT — G5: PASS/CLOSED/FROZEN, 2026-09-14]
+│   ├── G6_WORKSTREAMS/                          [ACTIVE CHECKPOINT — G6: IN PROGRESS] Real MCP Enforcement Gate
+│   │   ├── 00_G6_CHECKPOINT_REFERENCE.md        shared definition-of-done and security invariants
+│   │   ├── 01_GATEWAY_MCP_G6.md                 Workstream 1 task specification
+│   │   ├── 02_GO_BACKEND_G6.md                  Workstream 2 task specification
+│   │   ├── 03_QA_SECURITY_G6.md                 Workstream 3 task specification
+│   │   └── 04_DEVOPS_G6.md                      Workstream 4 task specification
 │   │
 │   └── archive/                                 [historical — see docs/README.md kind 6]
 │       ├── MASTER_PLAN.md                       original Phase 0-7 plan; superseded after Phase 0
