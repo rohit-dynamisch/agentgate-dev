@@ -6,9 +6,11 @@ docs/superpowers
 # One per checkpoint, same shape every time: docs/PHASES/G{N}_WORKSTREAMS/results/
 docs/PHASES/*_WORKSTREAMS/results
 
-# Go build/test artifacts (agentgate/ module)
+# Go build/test artifacts
 /agentgate/agentgate
 /agentgate/agentgate.exe
+*-linux
+.tmp/
 *.test
 *.out
 
