@@ -1,0 +1,25 @@
+{
+  "name": "agentgate-admin-ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "AgentGate governance/admin UI prototype. Renders the existing framework-agnostic frontend contract layer (../frontend/src: models, parsing, state, view) with React + Vite. This is a demo/prototype scaffold, not a resolution of the production UI-framework open item described in ../frontend/package.json and frontend/src/view/decision-view.ts — see admin-ui/README.md.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}
