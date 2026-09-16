@@ -1,6 +1,6 @@
 # AgentGate — Open Decisions
 
-**Status:** Active — O-001, O-003, O-004 open; O-002, O-005, O-006, O-007, O-008 resolved
+**Status:** Active — O-001, O-004 open; O-002, O-003, O-005, O-006, O-007, O-008 resolved
 **Date:** 2026-08-22 (Updated 2026-09-16)
 
 This file contains unresolved questions that may affect architecture or implementation.
@@ -18,16 +18,6 @@ The production mechanism for obtaining a downstream credential that represents t
 **Current action:** Resolve before production downstream identity implementation.
 
 **Allowed development approach:** Build interfaces and test doubles around the credential boundary without establishing unsafe token-passthrough behavior.
-
-## O-003 — agentgateway conformance/security boundary
-
-**Priority:** High
-
-The project relies on agentgateway for MCP transport, routing, JWT validation, and ext_authz integration.
-
-The exact behaviors relied upon must be verified through integration/conformance tests rather than assumed from feature availability.
-
-**Current action:** Build targeted integration tests during the first end-to-end slice (Gate G6).
 
 ## O-004 — Supported MCP revision(s)
 
@@ -69,6 +59,18 @@ AgentGate should own an execution/correlation identifier for audit, future aggre
 3. Authenticated JWT identity is delivered in `CheckRequest.Attributes.MetadataContext.FilterMetadata["envoy.filters.http.jwt_authn"]`.
 4. Fail-closed behavior is verified empirically: `DENY` -> 0 backend calls, `MALFORMED` -> 0 backend calls, `UNAVAILABLE` -> 0 backend calls.
 5. The production `internal/authz` adapter unmarshals the JSON-RPC body, verifies tool governance against `toolregistry` and `argdecl`, and calls `audit.AuditedDecisionService.Evaluate()`. See `docs/PHASES/G6_WORKSTREAMS/G6_GATEWAY_CONTRACT.md`.
+
+### O-003 — agentgateway conformance/security boundary (resolved 2026-09-16, G6 checkpoint)
+
+**Priority was:** High
+
+**Resolution:** Verified empirically through independent black-box E2E security suite (`agentgate/qa/g6enforcement`) running against pinned `agentgateway:v1.4.0` in the integrated Docker topology (`deploy/g6/docker-compose.yml`).
+1. Conformance proved across 12 mandatory DoD scenarios (100% PASS).
+2. Exactly 1 backend call occurred for authenticated, authorized requests (`read_status`).
+3. Exactly 0 backend calls occurred across all 11 failure/denial/outage scenarios (unknown tool, denied tool, missing identity, ambiguous identity, malformed JSON, schema drift, client metadata spoofing, oversized payload, live AgentGate outage, policy evaluation fault).
+4. Live service recovery was verified (1 backend call after AgentGate restart).
+5. Zero client trust: client cannot bypass enforcement via injected headers or body parameters.
+6. See `docs/PHASES/G6_WORKSTREAMS/results/QA_SECURITY_G6_REPORT.md` and `docs/PHASES/G6_WORKSTREAMS/CLOSURE_SUMMARY.md`.
 
 ### O-002 — Audit durability invariant (resolved 2026-09-14, G5 checkpoint)
 
