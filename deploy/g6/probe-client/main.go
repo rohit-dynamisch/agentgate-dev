@@ -160,6 +160,7 @@ func main() {
 	toolFlag := flag.String("tool", "read_status", "Tool to invoke")
 	argsFlag := flag.String("args", "{}", "Tool arguments JSON")
 	rawFlag := flag.String("raw", "", "Raw JSON payload to send directly")
+	skipInitFlag := flag.Bool("skip-init", false, "Skip initialize handshake")
 	flag.Parse()
 
 	client := NewClient(*urlFlag, *tokenFlag)
@@ -173,13 +174,19 @@ func main() {
 		return
 	}
 
-	if err := client.Initialize(); err != nil {
-		log.Fatalf("initialize failed: %v", err)
+	if !*skipInitFlag {
+		if err := client.Initialize(); err != nil {
+			log.Fatalf("initialize failed: %v", err)
+		}
 	}
 
 	var args map[string]any
-	if err := json.Unmarshal([]byte(*argsFlag), &args); err != nil {
-		log.Fatalf("invalid args JSON: %v", err)
+	if *argsFlag != "" && *argsFlag != "{}" {
+		if err := json.Unmarshal([]byte(*argsFlag), &args); err != nil {
+			log.Fatalf("invalid args JSON: %v (input: %s)", err, *argsFlag)
+		}
+	} else {
+		args = map[string]any{"verbose": true}
 	}
 
 	result, err := client.CallTool(*toolFlag, args)
