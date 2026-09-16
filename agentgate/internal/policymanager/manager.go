@@ -26,8 +26,9 @@ type Manager struct {
 	store    policystore.Store
 	listener auditevents.MutationListener
 
-	mu      sync.RWMutex
-	engines map[string]*policy.Engine // workspaceID -> loaded active Cedar engine
+	mu             sync.RWMutex
+	engines        map[string]*policy.Engine // workspaceID -> loaded active Cedar engine
+	activeVersions map[string]string         // workspaceID -> active policy version identifier
 }
 
 // New constructs a new Manager backed by store with a no-op mutation listener.
@@ -39,9 +40,10 @@ func New(store policystore.Store) *Manager {
 // G4 uses this to hook audit events; G5 will provide the durable listener.
 func NewWithListener(store policystore.Store, listener auditevents.MutationListener) *Manager {
 	return &Manager{
-		store:    store,
-		listener: listener,
-		engines:  make(map[string]*policy.Engine),
+		store:          store,
+		listener:       listener,
+		engines:        make(map[string]*policy.Engine),
+		activeVersions: make(map[string]string),
 	}
 }
 
@@ -93,6 +95,37 @@ func (m *Manager) CreateCandidate(ctx context.Context, workspaceID, content, des
 	return rec, nil
 }
 
+// CreateCandidateWithVersion validates Cedar syntax and persists a candidate with an explicit version identifier (e.g. "v1", "v2").
+func (m *Manager) CreateCandidateWithVersion(ctx context.Context, workspaceID, version, content, description string) (policystore.PolicyRecord, error) {
+	if _, err := m.Validate(content); err != nil {
+		return policystore.PolicyRecord{}, err
+	}
+
+	rec := policystore.PolicyRecord{
+		WorkspaceID: workspaceID,
+		Version:     version,
+		Content:     content,
+		State:       policystore.StateCandidate,
+		Description: description,
+	}
+
+	if err := m.store.CreatePolicy(ctx, rec); err != nil {
+		if errors.Is(err, policystore.ErrAlreadyExists) {
+			return m.store.GetPolicy(ctx, workspaceID, version)
+		}
+		return policystore.PolicyRecord{}, fmt.Errorf("policymanager: persist candidate: %w", err)
+	}
+
+	m.listener.OnMutation(ctx, auditevents.MutationEvent{
+		WorkspaceID: workspaceID,
+		Action:      auditevents.ActionCreateCandidate,
+		NewVersion:  version,
+		Timestamp:   time.Now(),
+	})
+
+	return rec, nil
+}
+
 // Activate validates and atomically activates the specified policy version for a workspace.
 // The in-memory cache is updated immediately on successful activation.
 func (m *Manager) Activate(ctx context.Context, workspaceID, version string) (policystore.PolicyRecord, error) {
@@ -112,9 +145,10 @@ func (m *Manager) Activate(ctx context.Context, workspaceID, version string) (po
 		return policystore.PolicyRecord{}, fmt.Errorf("policymanager: activate in store: %w", err)
 	}
 
-	// Atomically swap the in-memory engine pointer
+	// Atomically swap the in-memory engine pointer and active version
 	m.mu.Lock()
 	m.engines[workspaceID] = eng
+	m.activeVersions[workspaceID] = version
 	m.mu.Unlock()
 
 	m.listener.OnMutation(ctx, auditevents.MutationEvent{
@@ -145,9 +179,10 @@ func (m *Manager) Rollback(ctx context.Context, workspaceID, targetVersion strin
 		return policystore.PolicyRecord{}, fmt.Errorf("policymanager: rollback in store: %w", err)
 	}
 
-	// Atomically swap the in-memory engine pointer
+	// Atomically swap the in-memory engine pointer and active version
 	m.mu.Lock()
 	m.engines[workspaceID] = eng
+	m.activeVersions[workspaceID] = targetVersion
 	m.mu.Unlock()
 
 	m.listener.OnMutation(ctx, auditevents.MutationEvent{
@@ -173,6 +208,22 @@ func (m *Manager) GetActiveEngine(workspaceID string) (*policy.Engine, error) {
 		return nil, ErrNoActiveEngine
 	}
 	return eng, nil
+}
+
+// GetActiveProvenance returns the active policy version identifier and the SHA-256 content hash of the loaded policy engine.
+func (m *Manager) GetActiveProvenance(workspaceID string) (version string, hash string, err error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	eng, ok := m.engines[workspaceID]
+	if !ok || eng == nil {
+		return "", "", ErrNoActiveEngine
+	}
+	ver := m.activeVersions[workspaceID]
+	if ver == "" {
+		ver = eng.Version()
+	}
+	return ver, eng.Version(), nil
 }
 
 // Preview evaluates a batch of sample evaluation inputs against a candidate or historical policy
@@ -212,6 +263,7 @@ func (m *Manager) LoadActivePolicies(ctx context.Context, workspaces []string) e
 		}
 		m.mu.Lock()
 		m.engines[ws] = eng
+		m.activeVersions[ws] = rec.Version
 		m.mu.Unlock()
 	}
 	return nil

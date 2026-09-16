@@ -1,7 +1,7 @@
 # AgentGate — Open Decisions
 
-**Status:** Active — O-001, O-003–O-005, O-007, O-008 open; O-002, O-006 resolved
-**Date:** 2026-08-22
+**Status:** Active — O-001, O-004 open; O-002, O-003, O-005, O-006, O-007, O-008 resolved
+**Date:** 2026-08-22 (Updated 2026-09-16)
 
 This file contains unresolved questions that may affect architecture or implementation.
 
@@ -18,16 +18,6 @@ The production mechanism for obtaining a downstream credential that represents t
 **Current action:** Resolve before production downstream identity implementation.
 
 **Allowed development approach:** Build interfaces and test doubles around the credential boundary without establishing unsafe token-passthrough behavior.
-
-## O-003 — agentgateway conformance/security boundary
-
-**Priority:** High
-
-The project relies on agentgateway for MCP transport, routing, JWT validation, and ext_authz integration.
-
-The exact behaviors relied upon must be verified through integration/conformance tests rather than assumed from feature availability.
-
-**Current action:** Build targeted integration tests during the first end-to-end slice.
 
 ## O-004 — Supported MCP revision(s)
 
@@ -57,57 +47,40 @@ AgentGate should own an execution/correlation identifier for audit, future aggre
 
 **Current action:** Define as part of the request-context model.
 
-## O-008 — ext_authz transport mapping to the decision.Request contract
-
-**Priority:** High
-
-**Found:** G1 checkpoint, Gateway/MCP workstream (`g1/gateway-mcp`), confirmed against the real
-`agentgateway` binary once available (`gateway/README.md`, "Real-binary verification").
-
-agentgateway's documented `ext_authz` mechanisms — the HTTP protocol variant
-(`path`/`addRequestHeaders`/`includeResponseHeaders`/`redirect`, all CEL expressions operating on
-URL/headers only) and the gRPC variant (Envoy's generic `CheckRequest`/`CheckResponse`) — have no
-documented way to construct an arbitrary JSON request body. Neither natively produces the
-`decision.Request` shape (`execution_id`, `workspace_id`, `identity`, `tool`, `classification`,
-`arguments`) this project's frozen G1 contract defines. That JSON shape is an
-application/testing contract for the decision core, not necessarily agentgateway's native
-`ext_authz` wire protocol.
-
-The production mechanism by which the real `internal/authz` (not yet built, Day 3/8) receives an
-`ext_authz` callout and translates it into a `decision.Request` is undesigned. The most plausible
-approach — `internal/authz` parsing the raw included request body itself (via `internal/mcpreq`,
-per the repo-layout notes in `docs/PROJECT_DEFINITION.md §11`) rather than agentgateway's config
-DSL assembling AgentGate's bespoke JSON — is a hypothesis, not a decision.
-
-**Current action:** Design `internal/authz`'s ext_authz-to-`decision.Request` translation
-mechanism during the Day 3/8 gateway-integration task. Do not have Gateway/MCP or any other
-workstream invent a gateway-side adapter/shim to bridge this in the meantime — that would create a
-second, competing contract-mapping outside the component that should own it.
-
-**Allowed development approach:** Keep using the direct-HTTP mock/harness pattern already
-established (`agentgate/cmd/g1-mock-authz`, `gateway/harness`) for contract-level testing until
-`internal/authz` exists to close this gap for real.
-
 ## Resolved
 
-### O-002 — Audit durability invariant (resolved 2026-09-09, DAY-01/TASK-01)
+### O-008 — ext_authz transport mapping to decision.Request contract (resolved 2026-09-16, G6 Phase 1)
+
+**Priority was:** High
+
+**Resolution:** Verified empirically against pinned `agentgateway:v1.4.0` (`sha256:771afaf093065477fa296eb90dcb618a0300165f12a32f80bbdd1427fab900ec`).
+1. agentgateway uses Envoy v3 gRPC `envoy.service.auth.v3.Authorization/Check` callout configured via `policies.extAuthz.protocol.grpc: {}`.
+2. Raw MCP JSON-RPC 2.0 tool call body (`tools/call`, tool name, arguments) is delivered in `CheckRequest.Attributes.Request.Http.Body` and `RawBody` when `includeRequestBody: { maxRequestBytes: 1048576, allowPartialMessage: false, packAsBytes: false }` is enabled.
+3. Authenticated JWT identity is delivered in `CheckRequest.Attributes.MetadataContext.FilterMetadata["envoy.filters.http.jwt_authn"]`.
+4. Fail-closed behavior is verified empirically: `DENY` -> 0 backend calls, `MALFORMED` -> 0 backend calls, `UNAVAILABLE` -> 0 backend calls.
+5. The production `internal/authz` adapter unmarshals the JSON-RPC body, verifies tool governance against `toolregistry` and `argdecl`, and calls `audit.AuditedDecisionService.Evaluate()`. See `docs/PHASES/G6_WORKSTREAMS/G6_GATEWAY_CONTRACT.md`.
+
+### O-003 — agentgateway conformance/security boundary (resolved 2026-09-16, G6 checkpoint)
+
+**Priority was:** High
+
+**Resolution:** Verified empirically through independent black-box E2E security suite (`agentgate/qa/g6enforcement`) running against pinned `agentgateway:v1.4.0` in the integrated Docker topology (`deploy/g6/docker-compose.yml`).
+1. Conformance proved across 12 mandatory DoD scenarios (100% PASS).
+2. Exactly 1 backend call occurred for authenticated, authorized requests (`read_status`).
+3. Exactly 0 backend calls occurred across all 11 failure/denial/outage scenarios (unknown tool, denied tool, missing identity, ambiguous identity, malformed JSON, schema drift, client metadata spoofing, oversized payload, live AgentGate outage, policy evaluation fault).
+4. Live service recovery was verified (1 backend call after AgentGate restart).
+5. Zero client trust: client cannot bypass enforcement via injected headers or body parameters.
+6. See `docs/PHASES/G6_WORKSTREAMS/results/QA_SECURITY_G6_REPORT.md` and `docs/PHASES/G6_WORKSTREAMS/CLOSURE_SUMMARY.md`.
+
+### O-002 — Audit durability invariant (resolved 2026-09-14, G5 checkpoint)
 
 **Priority was:** Critical
 
-**Original question:** whether an ALLOW may be returned when the corresponding audit event has not
-yet been durably persisted, given the technology plan's asynchronous audit-write concept versus an
-architecture review recommending against committing ALLOW without durable audit persistence.
+**Original question:** whether an ALLOW may be returned when the corresponding audit event has not yet been durably persisted, given the technology plan's asynchronous audit-write concept versus an architecture review recommending against committing ALLOW without durable audit persistence.
 
-**Resolution:** no — an ALLOW must not be returned unless a durable audit outcome for that exact
-decision is guaranteed (a synchronous PostgreSQL write, or a durable local buffer/journal that
-survives a process crash, with PostgreSQL as the eventual sink). Audit-durability failure fails the
-request closed. Recorded as a binding invariant in
-`docs/SECURITY/PRODUCTION-INVARIANTS.md §5` and §12.2 (Blocking Decision #2).
+**Resolution:** no — an ALLOW must not be returned unless a durable audit outcome for that exact decision is guaranteed. Audit-durability failure fails the request closed (`DENY`). Recorded as a binding invariant in `docs/SECURITY/PRODUCTION-INVARIANTS.md §5` and §12.2.
 
-**What remains (not reopened as an architectural question):** the specific durable-buffer
-technology/format is an implementation decision for Day 7 of
-`docs/PHASES/AGENTGATE_V1_15_DAY_PRODUCTION_PLAN.md`, not an open invariant question — only the
-*mechanism*, not the *guarantee*, remains to be built.
+**Implementation (Completed G5, 2026-09-14):** Implemented in `agentgate/internal/audit`: append-only `audit_events` PostgreSQL persistence, tamper-evident SHA-256 row chaining (`prev_hash` + `row_hash`), independent out-of-process `ChainVerifier`, pre-persistence argument redaction (`redact.go`), fail-closed decision enforcement (`service.go`), DB immutability triggers (`prevent_audit_modification`), and DB privilege separation (`agentgate_app` vs `agentgate_migrator`). Formally approved by the Lead Architect 2026-09-14.
 
 ### O-006 — Argument authorization model (resolved 2026-09-13, G2 checkpoint)
 
@@ -149,6 +122,18 @@ once the declared arguments reach policy evaluation.
 - `docs/PHASES/G2_WORKSTREAMS/results/GO_BACKEND_G2_REPORT.md` §Open Decisions
 - `agentgate/internal/decision/types.go` (AttributeValue type, historical O-006 comment)
 - `agentgate/internal/decision/doc.go` (historical O-006 reference)
+
+### O-005 — Tool identity and schema fingerprint (resolved 2026-09-13, G2 checkpoint)
+
+**Priority was:** High
+
+**Resolution:** Implemented in `agentgate/internal/toolregistry`. Defines deterministic canonicalization and SHA-256 fingerprinting for backend identity + tool name + schema. Any schema drift triggers `CheckDrift()` detection and deny-by-default behavior until classified.
+
+### O-007 — AgentGate execution identity (resolved 2026-09-13, G2 & G5 checkpoints)
+
+**Priority was:** Medium/High
+
+**Resolution:** Defined `execution_id` correlation identifier populated across `decision.Request` (`internal/contextassembly`) and persisted in `audit_events` (`internal/audit`) for end-to-end request tracing and audit correlation.
 
 ## Decision protocol
 

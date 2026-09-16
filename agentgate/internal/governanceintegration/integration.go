@@ -42,6 +42,11 @@ func (s *GovernanceDecisionService) EvaluateWithActivePolicy(_ context.Context, 
 	return de.Evaluate(req), nil
 }
 
+// GetActiveProvenance returns the active policy version identifier and the SHA-256 content hash of the active engine.
+func (s *GovernanceDecisionService) GetActiveProvenance(workspaceID string) (string, string, error) {
+	return s.manager.GetActiveProvenance(workspaceID)
+}
+
 // DryRunCompare evaluates each request against both the active and candidate
 // policies, returning paired comparison results. The active policy is NOT
 // mutated by this operation — dry-run isolation is guaranteed.

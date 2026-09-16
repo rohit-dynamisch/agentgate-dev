@@ -1,65 +1,89 @@
 # AgentGate — Current Development Status
 
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-16
 
-This file states only what is true *right now*. It is rewritten in place, not appended to — for
-history, see the checkpoint's own `CLOSURE_SUMMARY.md` (once written) or `git log`. Full
-navigation: `docs/README.md`.
+This file states only what is true *right now*. It is rewritten in place, not appended to — for history, see each checkpoint's own `CLOSURE_SUMMARY.md` in `docs/PHASES/G{N}_WORKSTREAMS/` or `git log`. Full navigation: `docs/README.md`.
+
+---
 
 ## Where we are
 
-**Strategy in force:** `docs/PHASES/AGENTGATE_V1_10_DAY_PARALLEL_TEAM_EXECUTION_PLAN.md` (parallel
-workstreams, gated by checkpoints).
+**Strategy in force:** [`docs/PHASES/AGENTGATE_V1_10_DAY_PARALLEL_TEAM_EXECUTION_PLAN.md`](../PHASES/AGENTGATE_V1_10_DAY_PARALLEL_TEAM_EXECUTION_PLAN.md) (parallel workstreams, gated by checkpoints).
 
-**Checkpoint G1 (Authorization Contract Freeze): PASS / CLOSED / FROZEN.**
-Lead Architect verdict recorded 2026-09-12. All five workstreams (Go Backend, Gateway/MCP,
-Frontend/UI, QA/Security, DevOps) merged into `development`. The frozen contract is
-`agentgate/internal/decision.Request`/`Result`, documented in
-`docs/PHASES/G1_WORKSTREAMS/GO_BACKEND_G1_CONTRACT.md`. No further G1 changes are expected; any
-change to the frozen contract now requires Architect review per that document's freeze rule.
+### Checkpoint Milestones
 
-**Currently paused for process/documentation reorganization** (this pass) before G2 planning
-begins — no functional development is blocked on this; G2 has simply not started yet.
+- **G1 — Authorization Contract Freeze: PASS / CLOSED / FROZEN** (2026-09-12). Lead Architect verdict recorded 2026-09-12. All five workstreams merged into `development`. Frozen contract: `agentgate/internal/decision.Request`/`Result`, documented in [`docs/PHASES/G1_WORKSTREAMS/GO_BACKEND_G1_CONTRACT.md`](../PHASES/G1_WORKSTREAMS/GO_BACKEND_G1_CONTRACT.md).
+- **G2 — Identity + Tool Governance boundary: PASS / CLOSED** (2026-09-13). Identity claims mapper (`internal/identity`), tool registry with canonical SHA-256 schema fingerprint & drift detection (`internal/toolregistry`), per-tool argument whitelist registry (`internal/argdecl`, resolving O-006), context assembly (`internal/contextassembly`), gateway inspection evidence, and `g2security` QA suite.
+- **G3 — Policy Persistence + Governance API: PASS / CLOSED** (2026-09-13). Policy store (`internal/policystore`, memory & Postgres implementations sharing one behavior test), lifecycle manager (`internal/policymanager`, content-addressed SHA-256 versions, atomic activation, cached engine, rollback, preview), admin governance REST API (`internal/govapi`), frontend governance client/state/views, `g3governance` QA suite, and `deploy/g3` reproducible Postgres environment.
+- **G4 — Governance Workflow Integration: PASS / CLOSED / FROZEN** (2026-09-14). Mutation audit events (`internal/auditevents`), governance-to-decision integration service (`internal/governanceintegration`, active-vs-candidate dry-run compare), `POST .../policies/{version}/dryrun` REST endpoint, frontend dry-run models/client/views, `g4integration` QA suite (8 DoD invariants), and `deploy/g4` E2E compose topology. Formally approved by Lead Architect 2026-09-14.
+- **G5 — Durable Audit Boundary: PASS / CLOSED / FROZEN** (2026-09-14). Append-only `audit_events` persistence in PostgreSQL (`internal/audit`), tamper-evident SHA-256 row chaining (`prev_hash` + `row_hash`), independent out-of-process `ChainVerifier`, pre-persistence argument redaction (`redact.go`), fail-closed audit enforcement (audit failure => decision `DENY`, resolving O-002), database immutability trigger (`prevent_audit_modification`), database privilege separation (`agentgate_app` vs `agentgate_migrator`), `g5audit` QA suite (9 DoD invariants), and `deploy/g5` reproducible topology. Formally approved by Lead Architect 2026-09-14.
+- **G6 — Real MCP End-to-End Enforcement: PASS / CLOSED / FROZEN** (2026-09-16). Lead Architect verdict recorded 2026-09-16. Envoy v3 `ext_authz` gRPC service (`internal/authz`), JSON-RPC 2.0 tool call adapter, trusted gateway identity metadata extraction, `TrustedWorkspaceResolver`, durable PostgreSQL audit with SHA-256 row chaining, adaptation-failure DENY auditing, live `agentgateway:v1.4.0` integration, independent black-box E2E enforcement suite (`qa/g6enforcement`, 12/12 DoD scenarios passing, live outage fail-closed verified, live service recovery verified), and G4-aligned credential hygiene in `deploy/g6`. Formally approved by Lead Architect 2026-09-16.
+- **Next Checkpoint: G7 — Downstream Scoped Identity & Token Exchange** (O-001 concrete implementation: downstream scoped MCP credentials, caller/on-behalf-of identity propagation without token passthrough).
+
+---
 
 ## What exists and runs today
 
-- Go module `agentgate/` (module path `github.com/Dynamisch-LLC/agentgate`, Go 1.26): typed
-  config, structured logging, health/readiness HTTP surface, graceful shutdown, the Cedar-backed
-  decision core (`internal/decision`, `internal/policy`, `internal/fixturepolicy`), and a
-  non-production JSON/HTTP mock of the decision core (`internal/mockauthz`, `cmd/g1-mock-authz`)
-  used for G1 cross-stream integration.
-- `gateway/`: an `agentgateway` configuration verified against the real binary, plus an
-  independent Go verification harness.
-- `frontend/`: framework-agnostic TypeScript models/parsing/state-machine for the frozen contract
-  (no production UI framework chosen yet — deliberately deferred).
-- `agentgate/qa/g1blackbox/`: an independent black-box test suite against the real mock.
-- `deploy/g1/`: a Docker Compose topology for the G1 mock, built and verified against a real
-  Docker daemon.
+### Go backend (`agentgate/`)
+- Production service executable `cmd/agentgate` (config, structured JSON logging, health/readiness HTTP endpoints, graceful shutdown, and Envoy v3 `ext_authz` gRPC service on `:9001`).
+- Frozen Cedar authorization decision core (`internal/decision`, `internal/policy`, `internal/fixturepolicy`) + test-only mock binary `cmd/g1-mock-authz`.
+- Production Envoy v3 `ext_authz` gRPC service & adapter (`internal/authz`) converting JSON-RPC 2.0 `tools/call` into `decision.Request` with tool governance and argument whitelist enforcement.
+- Identity claims mapper (`internal/identity`) with fail-closed mapping across 4 failure classes.
+- Tool registry (`internal/toolregistry`) with canonical SHA-256 schema fingerprinting and drift detection.
+- Argument declaration whitelist registry (`internal/argdecl`) and context assembler (`internal/contextassembly`).
+- Policy persistence store (`internal/policystore`) with Memory and PostgreSQL implementations, partial unique active index, and embedded schema migrations.
+- Policy lifecycle manager (`internal/policymanager`) with atomic activation, concurrency-safe cached engine swap, rollback, preview, and mutation audit events (`internal/auditevents`).
+- Admin governance REST API (`internal/govapi`) with constant-time key comparison authentication.
+- Governance-decision integration bridge (`internal/governanceintegration`) with dry-run candidate-vs-active comparison.
+- **Durable audit boundary (`internal/audit`):** Postgres append-only persistence, SHA-256 row chaining, independent `ChainVerifier`, pre-persistence argument redaction, fail-closed enforcement, and DB immutability triggers.
 
-## Not yet started
+### Gateway / MCP (`gateway/` & `deploy/g6/`)
+- Reviewable `agentgateway` configuration (`gateway/config/g1-agentgateway.yaml` and `deploy/g6/agentgateway.yaml`) targeting AgentGate via `policies.extAuthz` (Envoy v3 gRPC protocol, request body inclusion).
+- Pinned `agentgateway:v1.4.0` verified with empirical probe tests (`docs/PHASES/G6_WORKSTREAMS/G6_GATEWAY_CONTRACT.md`).
+- Independent Go verification harness (`gateway/harness/`) asserting wire fixtures over real HTTP.
 
-- Production `ext_authz` gRPC service (`internal/authz`) and the JWT-claims-mapping identity
-  layer (`internal/identity`) — see O-008 in `docs/DECISIONS/OPEN_DECISIONS.md` for the specific
-  architectural question this raises.
-- Tool governance, argument-declaration registry, PostgreSQL policy/audit persistence, policy
-  governance UI, downstream credential mechanism, production deployment configuration.
-- Production CI/CD hardening beyond the current baseline (`docs/DEVELOPMENT/CI_BASELINE.md`):
-  integration tests, fuzzing, SBOM, signing, release automation.
-- OSS/public-launch readiness (license decision, community-health files, repo location/naming) —
-  deliberately deferred, tracked in `docs/DEVELOPMENT/OSS_READINESS.md`.
+### Frontend contract layer (`frontend/`)
+- Framework-agnostic TypeScript library (`src/api/governanceClient.ts`, `src/models/`, `src/state/`, `src/view/`) with full Vitest test coverage (63 tests across 7 suites) for governance, dry-run comparison, and rollback rendering.
+
+### Deploy environments (`deploy/`)
+- `deploy/g3/`: Reproducible Postgres container + readiness probe + migration verification script.
+- `deploy/g4/`: Integrated governance-to-decision E2E topology with curl lifecycle runbook.
+- `deploy/g5/`: Reproducible Postgres topology with DB privilege separation (`agentgate_app` vs `agentgate_migrator`) and audit immutability triggers.
+- `deploy/g6/`: Integrated 4-service topology (`g6-postgres`, `g6-agentgate`, `g6-agentgateway`, `g6-probe-mcp`) on `g6net` with automated clean-run matrix runner `deploy/g6/run-e2e-matrix.ps1`.
+
+### QA & Security proof suites (`agentgate/qa/`)
+- Six independent QA suites importing zero `internal/*` packages:
+  1. `qa/g1blackbox`: Out-of-process contract verification against mock binary.
+  2. `qa/g2security`: Identity, tool abuse, argument whitelist, and trust boundary proofs.
+  3. `qa/g3governance`: Policy persistence, atomic activation, and Postgres lifecycle invariants.
+  4. `qa/g4integration`: Full governance-to-decision loop (8 DoD invariants).
+  5. `qa/g5audit`: Durable audit persistence, SHA-256 hash chaining, tamper detection, redaction, fail-closed, and DB privilege separation (9 DoD invariants).
+  6. `qa/g6enforcement`: Full black-box E2E enforcement suite (12 DoD scenarios, live outage fail-closed, live recovery, Postgres SHA-256 chain verification).
+
+---
+
+## Not yet started (The Next Boundaries)
+
+- Downstream credential mechanism & token exchange (O-001, Gate G7).
+- Supported MCP revision multi-version matrix (O-004).
+- Shipped UI application (frontend is currently contract/view layer only).
+
+---
 
 ## Current blockers
 
-None. G2 is simply not yet planned/started.
+None active. Next checkpoint **G7 — Downstream Scoped Identity & Token Exchange** is defined.
+
+---
 
 ## Open architectural decisions
 
-See `docs/DECISIONS/OPEN_DECISIONS.md` (currently O-001, O-003 through O-008 open; O-002
-resolved).
+See [`docs/DECISIONS/OPEN_DECISIONS.md`](../DECISIONS/OPEN_DECISIONS.md):
+- **Open:** O-001 (downstream identity), O-004 (supported MCP revision).
+- **Resolved:** O-002 (audit durability, resolved G5), O-003 (gateway conformance, resolved G6), O-005 (tool fingerprinting, resolved G2), O-006 (argument authorization model, resolved G2), O-007 (execution identity, resolved G2/G5), O-008 (ext_authz transport mapping, resolved G6).
+
+---
 
 ## Status-update rule
 
-Rewrite this file in place after any checkpoint transition or other meaningful state change. Do
-not append historical narrative here — that belongs in the relevant checkpoint's own docs. Do not
-claim a capability is complete until implementation and required verification have actually
-occurred.
+Rewrite this file in place after any checkpoint transition or other meaningful state change. Do not append historical narrative here — that belongs in the relevant checkpoint's own docs. Do not claim a capability is complete until implementation and required verification have actually occurred.
