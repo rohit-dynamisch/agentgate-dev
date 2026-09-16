@@ -76,10 +76,11 @@ func setupTestAdapter(t *testing.T) *Adapter {
 	}
 
 	return NewAdapter(AdapterConfig{
-		DefaultWorkspaceID: "ws-test",
-		DefaultBackendID:   "mcp-probe",
-		IdentityMapper:     mapper,
-		ToolRegistry:       reg,
+		DefaultWorkspaceID:   "ws-test",
+		AllowStaticWorkspace: true,
+		DefaultBackendID:     "mcp-probe",
+		IdentityMapper:       mapper,
+		ToolRegistry:         reg,
 		ArgDeclarations: map[string]*argdecl.DeclarationSet{
 			"read_status":    readStatusDecls,
 			"transfer_funds": transferDecls,
@@ -87,17 +88,33 @@ func setupTestAdapter(t *testing.T) *Adapter {
 	})
 }
 
-func TestAdapter_ValidToolCall_FromJWT(t *testing.T) {
-	adapter := setupTestAdapter(t)
-
-	jwtClaims, err := structpb.NewStruct(map[string]any{
-		"sub":   "agent-007",
-		"roles": "reader auditor",
-		"obo":   "user-corp",
-	})
+func newValidJWTMetadata(t *testing.T, sub string, roles string, obo string, extra ...map[string]any) *corev3.Metadata {
+	t.Helper()
+	m := map[string]any{
+		"sub":   sub,
+		"roles": roles,
+	}
+	if obo != "" {
+		m["obo"] = obo
+	}
+	for _, ext := range extra {
+		for k, v := range ext {
+			m[k] = v
+		}
+	}
+	s, err := structpb.NewStruct(m)
 	if err != nil {
 		t.Fatalf("failed to create structpb: %v", err)
 	}
+	return &corev3.Metadata{
+		FilterMetadata: map[string]*structpb.Struct{
+			"envoy.filters.http.jwt_authn": s,
+		},
+	}
+}
+
+func TestAdapter_ValidToolCall_FromJWT(t *testing.T) {
+	adapter := setupTestAdapter(t)
 
 	req := &authv3.CheckRequest{
 		Attributes: &authv3.AttributeContext{
@@ -106,19 +123,14 @@ func TestAdapter_ValidToolCall_FromJWT(t *testing.T) {
 					Method: "POST",
 					Path:   "/",
 					Headers: map[string]string{
-						":method":                   "POST",
-						":path":                     "/",
-						"x-agentgate-workspace-id": "ws-custom",
-						"x-execution-id":            "exec-12345",
+						"x-execution-id": "exec-12345",
 					},
 					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true}}}`,
 				},
 			},
-			MetadataContext: &corev3.Metadata{
-				FilterMetadata: map[string]*structpb.Struct{
-					"envoy.filters.http.jwt_authn": jwtClaims,
-				},
-			},
+			MetadataContext: newValidJWTMetadata(t, "agent-007", "reader auditor", "user-corp", map[string]any{
+				"workspace_id": "ws-custom",
+			}),
 		},
 	}
 
@@ -153,7 +165,9 @@ func TestAdapter_ValidToolCall_FromJWT(t *testing.T) {
 	}
 }
 
-func TestAdapter_ValidToolCall_FromHeaders(t *testing.T) {
+// TestAdapter_RejectUnverifiedHeaders proves that client-provided headers (x-agent-id, Authorization)
+// are strictly rejected when verified gateway metadata is absent.
+func TestAdapter_RejectUnverifiedHeaders(t *testing.T) {
 	adapter := setupTestAdapter(t)
 
 	req := &authv3.CheckRequest{
@@ -163,12 +177,39 @@ func TestAdapter_ValidToolCall_FromHeaders(t *testing.T) {
 					Method: "POST",
 					Path:   "/",
 					Headers: map[string]string{
-						"x-agent-id": "agent-hdr",
-						"x-roles":    "admin",
+						"x-agent-id":    "attacker-agent",
+						"x-roles":       "admin",
+						"authorization": "Bearer forged-token",
 					},
-					RawBody: []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"transfer_funds","arguments":{"amount":100}}}`),
+					RawBody: []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true}}}`),
 				},
 			},
+		},
+	}
+
+	_, aerr := adapter.Adapt(context.Background(), req)
+	if aerr == nil {
+		t.Fatal("security defect: expected failure when relying on unverified headers, got nil")
+	}
+	if aerr.ReasonCode != decision.ReasonInvalidIdentity {
+		t.Errorf("expected ReasonInvalidIdentity, got %s", aerr.ReasonCode)
+	}
+}
+
+func TestAdapter_WorkspaceResolution_FromJWT(t *testing.T) {
+	adapter := setupTestAdapter(t)
+
+	req := &authv3.CheckRequest{
+		Attributes: &authv3.AttributeContext{
+			Request: &authv3.AttributeContext_Request{
+				Http: &authv3.AttributeContext_HttpRequest{
+					Method: "POST",
+					Body:   `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status"}}`,
+				},
+			},
+			MetadataContext: newValidJWTMetadata(t, "agent-001", "reader", "", map[string]any{
+				"workspace_id": "ws-from-jwt",
+			}),
 		},
 	}
 
@@ -176,18 +217,96 @@ func TestAdapter_ValidToolCall_FromHeaders(t *testing.T) {
 	if aerr != nil {
 		t.Fatalf("unexpected adapter error: %v", aerr)
 	}
+	if decisionReq.WorkspaceID != "ws-from-jwt" {
+		t.Errorf("expected workspace 'ws-from-jwt', got %q", decisionReq.WorkspaceID)
+	}
+}
 
-	if decisionReq.Identity.AgentID != "agent-hdr" {
-		t.Errorf("expected agent 'agent-hdr', got %q", decisionReq.Identity.AgentID)
+func TestAdapter_WorkspaceResolution_FromContextExtensions(t *testing.T) {
+	adapter := setupTestAdapter(t)
+
+	req := &authv3.CheckRequest{
+		Attributes: &authv3.AttributeContext{
+			Request: &authv3.AttributeContext_Request{
+				Http: &authv3.AttributeContext_HttpRequest{
+					Method: "POST",
+					Body:   `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status"}}`,
+				},
+			},
+			ContextExtensions: map[string]string{
+				"workspace_id": "ws-from-route-ext",
+			},
+			MetadataContext: newValidJWTMetadata(t, "agent-001", "reader", ""),
+		},
 	}
-	if len(decisionReq.Identity.Roles) != 1 || decisionReq.Identity.Roles[0] != "admin" {
-		t.Errorf("unexpected roles: %v", decisionReq.Identity.Roles)
+
+	decisionReq, aerr := adapter.Adapt(context.Background(), req)
+	if aerr != nil {
+		t.Fatalf("unexpected adapter error: %v", aerr)
 	}
-	if decisionReq.Tool.Name != "transfer_funds" {
-		t.Errorf("expected tool transfer_funds, got %q", decisionReq.Tool.Name)
+	if decisionReq.WorkspaceID != "ws-from-route-ext" {
+		t.Errorf("expected workspace 'ws-from-route-ext', got %q", decisionReq.WorkspaceID)
 	}
-	if val, ok := decisionReq.Arguments["amount"]; !ok || val.String() != "100" {
-		t.Errorf("expected argument amount=100, got %v", decisionReq.Arguments)
+}
+
+func TestAdapter_WorkspaceResolution_ClientHeaderIgnored(t *testing.T) {
+	adapter := setupTestAdapter(t)
+
+	req := &authv3.CheckRequest{
+		Attributes: &authv3.AttributeContext{
+			Request: &authv3.AttributeContext_Request{
+				Http: &authv3.AttributeContext_HttpRequest{
+					Method: "POST",
+					Headers: map[string]string{
+						"x-agentgate-workspace-id": "forged-workspace",
+					},
+					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status"}}`,
+				},
+			},
+			MetadataContext: newValidJWTMetadata(t, "agent-001", "reader", "", map[string]any{
+				"workspace_id": "trusted-workspace",
+			}),
+		},
+	}
+
+	decisionReq, aerr := adapter.Adapt(context.Background(), req)
+	if aerr != nil {
+		t.Fatalf("unexpected adapter error: %v", aerr)
+	}
+	if decisionReq.WorkspaceID != "trusted-workspace" {
+		t.Errorf("security defect: expected trusted-workspace, got %q (client header was trusted)", decisionReq.WorkspaceID)
+	}
+}
+
+func TestAdapter_WorkspaceResolution_FailsClosed_WithoutStaticFallback(t *testing.T) {
+	cfg := AdapterConfig{
+		DefaultWorkspaceID:   "ws-test",
+		AllowStaticWorkspace: false, // Strict multi-tenant mode
+		IdentityMapper:       setupTestAdapter(t).cfg.IdentityMapper,
+		ToolRegistry:         setupTestAdapter(t).cfg.ToolRegistry,
+		ArgDeclarations:      setupTestAdapter(t).cfg.ArgDeclarations,
+	}
+	adapter := NewAdapter(cfg)
+
+	// No workspace in JWT, no route context extensions
+	req := &authv3.CheckRequest{
+		Attributes: &authv3.AttributeContext{
+			Request: &authv3.AttributeContext_Request{
+				Http: &authv3.AttributeContext_HttpRequest{
+					Method: "POST",
+					Body:   `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status"}}`,
+				},
+			},
+			MetadataContext: newValidJWTMetadata(t, "agent-001", "reader", ""),
+		},
+	}
+
+	_, aerr := adapter.Adapt(context.Background(), req)
+	if aerr == nil {
+		t.Fatal("expected failure when workspace cannot be resolved and static fallback disabled, got nil")
+	}
+	if aerr.ReasonCode != decision.ReasonInvalidIdentity {
+		t.Errorf("expected ReasonInvalidIdentity, got %s", aerr.ReasonCode)
 	}
 }
 
@@ -220,14 +339,10 @@ func TestAdapter_AmbiguousIdentity(t *testing.T) {
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{
-						"x-agent-id":       "agent-same",
-						"x-on-behalf-of":   "agent-same",
-						"x-roles":          "reader",
-					},
 					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status"}}`,
 				},
 			},
+			MetadataContext: newValidJWTMetadata(t, "agent-same", "reader", "agent-same"),
 		},
 	}
 
@@ -247,13 +362,10 @@ func TestAdapter_NonToolCall(t *testing.T) {
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "reader",
-					},
 					Body: `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28"}}`,
 				},
 			},
+			MetadataContext: newValidJWTMetadata(t, "agent-001", "reader", ""),
 		},
 	}
 
@@ -273,13 +385,10 @@ func TestAdapter_MalformedJSON(t *testing.T) {
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "reader",
-					},
 					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params": BROKEN JSON`,
 				},
 			},
+			MetadataContext: newValidJWTMetadata(t, "agent-001", "reader", ""),
 		},
 	}
 
@@ -299,13 +408,10 @@ func TestAdapter_UnknownTool(t *testing.T) {
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "reader",
-					},
 					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"delete_everything"}}`,
 				},
 			},
+			MetadataContext: newValidJWTMetadata(t, "agent-001", "reader", ""),
 		},
 	}
 
@@ -326,13 +432,10 @@ func TestAdapter_InvalidArguments(t *testing.T) {
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "admin",
-					},
 					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"transfer_funds","arguments":{"amount":"one_million"}}}`,
 				},
 			},
+			MetadataContext: newValidJWTMetadata(t, "agent-001", "admin", ""),
 		},
 	}
 
@@ -353,13 +456,10 @@ func TestAdapter_UndeclaredArgumentsIgnored(t *testing.T) {
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "reader",
-					},
 					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true,"exploit_payload":"malicious"}}}`,
 				},
 			},
+			MetadataContext: newValidJWTMetadata(t, "agent-001", "reader", ""),
 		},
 	}
 

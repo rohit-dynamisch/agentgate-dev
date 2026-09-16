@@ -23,10 +23,53 @@ type Adapter struct {
 	cfg AdapterConfig
 }
 
+// TrustedWorkspaceResolver resolves workspace identity strictly from verified JWT claims
+// or trusted gateway routing context (never from unauthenticated client headers).
+type TrustedWorkspaceResolver struct {
+	AllowStaticFallback bool
+	StaticWorkspaceID   string
+}
+
+// NewTrustedWorkspaceResolver constructs a TrustedWorkspaceResolver.
+func NewTrustedWorkspaceResolver(allowStaticFallback bool, staticWorkspaceID string) *TrustedWorkspaceResolver {
+	return &TrustedWorkspaceResolver{
+		AllowStaticFallback: allowStaticFallback,
+		StaticWorkspaceID:   staticWorkspaceID,
+	}
+}
+
+// ResolveWorkspace extracts workspace identity from verified JWT claims or gateway context extensions.
+func (r *TrustedWorkspaceResolver) ResolveWorkspace(ctx context.Context, checkReq *authv3.CheckRequest, claims map[string]string) (string, error) {
+	// 1. Check verified JWT claims (cryptographically validated by gateway)
+	if ws, ok := claims["workspace_id"]; ok && strings.TrimSpace(ws) != "" {
+		return strings.TrimSpace(ws), nil
+	}
+	if ws, ok := claims["workspace"]; ok && strings.TrimSpace(ws) != "" {
+		return strings.TrimSpace(ws), nil
+	}
+
+	// 2. Check trusted gateway route context extensions (server-side route config)
+	if checkReq != nil && checkReq.Attributes != nil && checkReq.Attributes.ContextExtensions != nil {
+		if ws, ok := checkReq.Attributes.ContextExtensions["workspace_id"]; ok && strings.TrimSpace(ws) != "" {
+			return strings.TrimSpace(ws), nil
+		}
+	}
+
+	// 3. Controlled static fallback if explicitly enabled for single-workspace deployments
+	if r.AllowStaticFallback && strings.TrimSpace(r.StaticWorkspaceID) != "" {
+		return strings.TrimSpace(r.StaticWorkspaceID), nil
+	}
+
+	return "", fmt.Errorf("trusted workspace identity could not be resolved from JWT claims or gateway routing context")
+}
+
 // NewAdapter constructs a new Adapter instance.
 func NewAdapter(cfg AdapterConfig) *Adapter {
 	if cfg.DefaultWorkspaceID == "" {
 		cfg.DefaultWorkspaceID = "default"
+	}
+	if cfg.WorkspaceResolver == nil {
+		cfg.WorkspaceResolver = NewTrustedWorkspaceResolver(cfg.AllowStaticWorkspace, cfg.DefaultWorkspaceID)
 	}
 	if cfg.DefaultBackendID == "" {
 		cfg.DefaultBackendID = "default"
@@ -109,8 +152,8 @@ func (a *Adapter) Adapt(ctx context.Context, checkReq *authv3.CheckRequest) (dec
 		}
 	}
 
-	// 3. Extract Identity Claims (from JWT filter metadata or fallback headers)
-	claims := a.extractClaims(checkReq, headers)
+	// 3. Extract Identity Claims (strictly from verified JWT filter metadata)
+	claims := a.extractClaims(checkReq)
 	if a.cfg.IdentityMapper == nil {
 		return decision.Request{}, &AdapterError{
 			ReasonCode: decision.ReasonInvalidIdentity,
@@ -127,13 +170,13 @@ func (a *Adapter) Adapt(ctx context.Context, checkReq *authv3.CheckRequest) (dec
 		}
 	}
 
-	// 4. Resolve WorkspaceID and ExecutionID
-	workspaceID := getHeader(headers, "x-agentgate-workspace-id")
-	if workspaceID == "" {
-		if claimWs, ok := claims["workspace_id"]; ok && claimWs != "" {
-			workspaceID = claimWs
-		} else {
-			workspaceID = a.cfg.DefaultWorkspaceID
+	// 4. Resolve WorkspaceID strictly from trusted claims/context
+	workspaceID, werr := a.cfg.WorkspaceResolver.ResolveWorkspace(ctx, checkReq, claims)
+	if werr != nil {
+		return decision.Request{}, &AdapterError{
+			ReasonCode: decision.ReasonInvalidIdentity,
+			Message:    fmt.Sprintf("trusted workspace resolution failed: %v", werr),
+			Err:        werr,
 		}
 	}
 
@@ -244,11 +287,11 @@ func (a *Adapter) Adapt(ctx context.Context, checkReq *authv3.CheckRequest) (dec
 	return decisionReq, nil
 }
 
-func (a *Adapter) extractClaims(checkReq *authv3.CheckRequest, headers map[string]string) map[string]string {
+func (a *Adapter) extractClaims(checkReq *authv3.CheckRequest) map[string]string {
 	claims := make(map[string]string)
 
-	// 1. Read claims from Envoy JWT filter metadata if present
-	if checkReq.Attributes != nil && checkReq.Attributes.MetadataContext != nil && checkReq.Attributes.MetadataContext.FilterMetadata != nil {
+	// Read claims ONLY from Envoy JWT filter metadata populated after cryptographic verification
+	if checkReq != nil && checkReq.Attributes != nil && checkReq.Attributes.MetadataContext != nil && checkReq.Attributes.MetadataContext.FilterMetadata != nil {
 		if jwtMetadata, ok := checkReq.Attributes.MetadataContext.FilterMetadata["envoy.filters.http.jwt_authn"]; ok && jwtMetadata != nil {
 			for k, v := range jwtMetadata.Fields {
 				claims[k] = structpbValueToString(v)
@@ -256,32 +299,8 @@ func (a *Adapter) extractClaims(checkReq *authv3.CheckRequest, headers map[strin
 		}
 	}
 
-	// 2. Overlay / fallback with verified identity headers
-	if _, ok := claims["sub"]; !ok || claims["sub"] == "" {
-		if val := getHeader(headers, "x-agent-id"); val != "" {
-			claims["sub"] = val
-		} else if val := getHeader(headers, "x-agentgate-agent-id"); val != "" {
-			claims["sub"] = val
-		}
-	}
-
-	if _, ok := claims["roles"]; !ok || claims["roles"] == "" {
-		if val := getHeader(headers, "x-roles"); val != "" {
-			claims["roles"] = val
-		} else if val := getHeader(headers, "x-agentgate-roles"); val != "" {
-			claims["roles"] = val
-		}
-	}
-
-	if _, ok := claims["obo"]; !ok || claims["obo"] == "" {
-		if val := getHeader(headers, "x-on-behalf-of"); val != "" {
-			claims["obo"] = val
-		} else if val := getHeader(headers, "x-obo"); val != "" {
-			claims["obo"] = val
-		} else if val := getHeader(headers, "x-agentgate-on-behalf-of"); val != "" {
-			claims["obo"] = val
-		}
-	}
+	// NOTE (G6 Security Boundary): Unverified client headers (e.g. x-agent-id, x-roles, Authorization)
+	// MUST NEVER be trusted as authenticated identity. Only gateway-authenticated JWT claims are authoritative.
 
 	return claims
 }

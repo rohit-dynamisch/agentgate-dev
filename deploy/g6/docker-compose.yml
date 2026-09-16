@@ -1,3 +1,14 @@
+# deploy/g6/docker-compose.yml — G6 Real MCP Enforcement Topology
+#
+# SECURITY & CREDENTIAL HANDLING NOTE:
+# This topology is an integration test harness for local and CI validation.
+# Sensitive values (AGENTGATE_ADMIN_TOKEN, AGENTGATE_DATABASE_URL, POSTGRES_PASSWORD)
+# are injected from caller environment variables when set, with explicit non-secret
+# development fallback fixtures for isolated local runs.
+# G6 local integration fixture != production secret configuration.
+# Production topologies must NEVER embed or default credentials and must inject secrets
+# via dedicated secret managers or orchestrator secret stores.
+
 name: agentgate-g6
 
 services:
@@ -8,14 +19,14 @@ services:
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_USER: agentgate
-      POSTGRES_PASSWORD: agentgate-dev-password
-      POSTGRES_DB: agentgate_db
+      POSTGRES_USER: "${POSTGRES_USER:-agentgate}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-agentgate-dev-password}"
+      POSTGRES_DB: "${POSTGRES_DB:-agentgate_db}"
     volumes:
       - g6_pgdata:/var/lib/postgresql/data
       - ./init-g6-db.sql:/docker-entrypoint-initdb.d/01-init-g6-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agentgate -d agentgate_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agentgate} -d ${POSTGRES_DB:-agentgate_db}"]
       interval: 3s
       timeout: 3s
       retries: 5
@@ -39,7 +50,7 @@ services:
       AGENTGATE_LOG_LEVEL: "debug"
       AGENTGATE_ADMIN_TOKEN: "${AGENTGATE_ADMIN_TOKEN:-agentgate-admin-secret-dev}"
       AGENTGATE_AUDIT_SALT: "${AGENTGATE_AUDIT_SALT:-audit-salt-g6-dev-fixture}"
-      AGENTGATE_DATABASE_URL: "${AGENTGATE_DATABASE_URL:-postgres://agentgate:agentgate-dev-password@postgres:5432/agentgate_db?sslmode=disable}"
+      AGENTGATE_DATABASE_URL: "${AGENTGATE_DATABASE_URL:-postgres://${POSTGRES_USER:-agentgate}:${POSTGRES_PASSWORD:-agentgate-dev-password}@postgres:5432/${POSTGRES_DB:-agentgate_db}?sslmode=disable}"
     depends_on:
       postgres:
         condition: service_healthy

@@ -48,3 +48,10 @@ powershell -ExecutionPolicy Bypass -File deploy/g6/run-contract-probe.ps1 -Valid
 ```powershell
 powershell -ExecutionPolicy Bypass -File deploy/g6/run-e2e-matrix.ps1
 ```
+
+## Credential Hygiene & Production Boundary
+
+> [!IMPORTANT]
+> **G6 Local Integration Fixture != Production Secret Configuration**  
+> The `deploy/g6/docker-compose.yml` topology is designed for deterministic local and CI verification. Sensitive values (`AGENTGATE_ADMIN_TOKEN`, `AGENTGATE_DATABASE_URL`, `POSTGRES_PASSWORD`) use environment interpolation (`${VAR:-default}`) with non-secret development fixtures. Production deployments must **never** use default fallback credentials and must supply external secrets via dedicated orchestrator secret stores (e.g. Kubernetes Secrets, Vault, or AWS Secrets Manager).
+

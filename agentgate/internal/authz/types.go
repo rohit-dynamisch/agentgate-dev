@@ -1,6 +1,7 @@
 package authz
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/Dynamisch-LLC/agentgate/internal/decision"
 	"github.com/Dynamisch-LLC/agentgate/internal/identity"
 	"github.com/Dynamisch-LLC/agentgate/internal/toolregistry"
+	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 )
 
 // JSONRPCRequest models an incoming JSON-RPC 2.0 request payload from the MCP client.
@@ -24,13 +26,20 @@ type ToolCallParams struct {
 	Arguments map[string]json.RawMessage `json:"arguments,omitempty"`
 }
 
+// WorkspaceResolver resolves a trusted workspace ID from verified JWT claims or gateway routing context.
+type WorkspaceResolver interface {
+	ResolveWorkspace(ctx context.Context, checkReq *authv3.CheckRequest, claims map[string]string) (string, error)
+}
+
 // AdapterConfig configures the ext_authz to decision.Request adapter.
 type AdapterConfig struct {
-	DefaultWorkspaceID string
-	DefaultBackendID   string
-	IdentityMapper     *identity.Mapper
-	ToolRegistry       *toolregistry.Registry
-	ArgDeclarations    map[string]*argdecl.DeclarationSet
+	DefaultWorkspaceID   string
+	AllowStaticWorkspace bool // If true, allows fallback to DefaultWorkspaceID when JWT/route context omits workspace.
+	WorkspaceResolver    WorkspaceResolver
+	DefaultBackendID     string
+	IdentityMapper       *identity.Mapper
+	ToolRegistry         *toolregistry.Registry
+	ArgDeclarations      map[string]*argdecl.DeclarationSet
 }
 
 // AdapterError describes why an ext_authz check cannot be translated into a valid decision.Request.

@@ -78,17 +78,17 @@ flowchart TD
 
 | Location | Purpose |
 |---|---|
-| `agentgate/internal/authz/types.go` | Data types for Envoy v3 `ext_authz` adapter, JSON-RPC 2.0 requests, and `DecisionService` interface. |
-| `agentgate/internal/authz/adapter.go` | Translates Envoy v3 `CheckRequest` into frozen `decision.Request`, enforcing tool governance, schema drift detection, argument whitelisting, and JWT identity mapping. |
-| `agentgate/internal/authz/adapter_test.go` | Unit test suite verifying adapter extraction, validation errors, null argument rejection, and fail-closed behaviors. |
-| `agentgate/internal/authz/server.go` | Production Envoy v3 gRPC `AuthorizationServer` implementation with fail-closed error handling and audit recording. |
-| `agentgate/internal/authz/server_test.go` | Unit test suite exercising gRPC `Check()` under ALLOW, DENY, adaptation failure, and internal error conditions. |
-| `agentgate/cmd/agentgate/main.go` | Wires the gRPC `ext_authz` server on `:9001` alongside HTTP health endpoints, seeds default policies, registers tools, and initializes PostgreSQL audited decision service. |
+| `agentgate/internal/authz/types.go` | Data types for Envoy v3 `ext_authz` adapter, `WorkspaceResolver` interface, `AdapterConfig` (with `AllowStaticWorkspace`), JSON-RPC 2.0 requests, and `DecisionService` interface. |
+| `agentgate/internal/authz/adapter.go` | Translates Envoy v3 `CheckRequest` into frozen `decision.Request`. Implements `TrustedWorkspaceResolver` (extracting workspace strictly from verified JWT claims or route context extensions) and strictly extracts caller identity from gateway-verified JWT metadata (`envoy.filters.http.jwt_authn`), removing all unverified client header fallbacks. Enforces tool governance, schema drift detection, and argument whitelisting. |
+| `agentgate/internal/authz/adapter_test.go` | Unit test suite verifying adapter extraction, validation errors, null argument rejection, unverified header rejection, workspace resolution from JWT/route context, and multi-tenant fail-closed behaviors. |
+| `agentgate/internal/authz/server.go` | Production Envoy v3 gRPC `AuthorizationServer` implementation. Enforces fail-closed error handling and durable audit recording—ensuring pre-decision adaptation failures (unknown tool, malformed JSON, missing auth) evaluate a fallback request to write a durable DENY audit record to PostgreSQL. |
+| `agentgate/internal/authz/server_test.go` | Unit test suite exercising gRPC `Check()` under ALLOW, DENY, adaptation failure, audit-failure fail-closed, and verifying durable DENY audit recording for adapter failures (`TestAuthzServer_AdapterError_Audited`). |
+| `agentgate/cmd/agentgate/main.go` | Wires the gRPC `ext_authz` server on `:9001` alongside HTTP health endpoints, seeds default policies, registers tools, and initializes PostgreSQL audited decision service with explicit `AllowStaticWorkspace: true` for the G6 single-workspace integration deployment. |
 | `agentgate/internal/config/config.go` | Added `AuthzGRPCAddr` configuration parameter (default `:9001`). |
 | `agentgate/internal/audit/postgres.go` | Fixed SQL parameter casting (`$1::text`) to resolve SQLSTATE `42P08` on sequence numbering. |
-| `agentgate/qa/g6enforcement/` | Black-box E2E security test suite validating all 12 mandatory DoD scenarios, zero internal imports. |
+| `agentgate/qa/g6enforcement/` | Black-box E2E security test suite validating all 12 mandatory DoD scenarios, zero internal imports, with JWT metadata context. |
 | `deploy/g6/agentgateway.yaml` | Pinned `agentgateway` configuration with strict JWT authentication, `policies.extAuthz` targeting `agentgate:9001`, and full body capture. |
-| `deploy/g6/docker-compose.yml` | Integrated 4-service topology (`g6-postgres`, `g6-agentgate`, `g6-agentgateway`, `g6-probe-mcp`) on `g6net` with host port mapping `5433:5432` for PostgreSQL. |
+| `deploy/g6/docker-compose.yml` | Integrated 4-service topology (`g6-postgres`, `g6-agentgate`, `g6-agentgateway`, `g6-probe-mcp`) on `g6net` with environment interpolation (`${VAR:-default}`), G4-aligned credential hygiene, and explicit security banner distinguishing test fixtures from production secret stores. |
 | `deploy/g6/init-g6-db.sql` | PostgreSQL initialization script creating schemas, immutability triggers, and G5 privilege separation (`agentgate_migrator` / `agentgate_app`). |
 | `deploy/g6/Dockerfile.agentgate` | Multi-stage Dockerfile packaging production `cmd/agentgate` binary. |
 | `deploy/g6/run-e2e-matrix.ps1` | Automated test runner provisioning the topology, executing the 12 scenarios, testing live outages, and verifying audit logs. |
@@ -101,9 +101,17 @@ flowchart TD
    *Why:* `agentgateway` implements the Envoy external authorization protocol natively via gRPC (`envoy.service.auth.v3.Authorization/Check`). Using gRPC provides strong typing, lower latency, and seamless protocol alignment with standard service-mesh ingress.
 2. **Strict In-Process Adapter Boundary (`internal/authz` calling `decision.Engine` via `audit.AuditedDecisionService`):**  
    *Why:* Keeps `internal/decision` completely decoupled from Envoy protobufs and JSON-RPC structures. The adapter translates external wire payloads into the immutable `decision.Request` contract frozen in G1.
-3. **Audit-Before-ALLOW Invariant Preserved in In-Line Path:**  
+3. **Strict Gateway Identity Trust Boundary (Gateway JWT Metadata Only):**  
+   *Why:* In response to Lead Architect review item 1, all client-supplied identity fallbacks (`x-agent-id`, `x-roles`, `Authorization` header) were removed from the production adapter. AgentGate trusts identity claims strictly and exclusively when emitted by the gateway's cryptographic JWT validator in `MetadataContext.FilterMetadata["envoy.filters.http.jwt_authn"]`. Inbound bearer headers are not re-interpreted at the adapter boundary, preventing trust boundary bypass.
+4. **Trusted Workspace Resolution Boundary (`TrustedWorkspaceResolver`):**  
+   *Why:* In response to Lead Architect review item 2, workspace identity is resolved via a dedicated `WorkspaceResolver` interface. It prioritizes cryptographically verified JWT claims (`workspace_id` or `workspace`) and server-side gateway route `ContextExtensions["workspace_id"]`. Client-controlled headers are strictly ignored. For G6 single-workspace integration testing, `AllowStaticWorkspace: true` permits fallback to `"default"`, while in multi-tenant environments setting this to `false` enforces fail-closed rejection when workspace claims are absent.
+5. **Durable DENY Auditing of Adaptation Failures (Preserving G5 Invariants):**  
+   *Why:* In response to Lead Architect review item 4, `server.go` reconciles adaptation failures (unknown tool, malformed JSON, missing auth, schema drift) with the G5 audit invariant: when `s.adapter.Adapt()` returns an error, the server constructs a fallback `decision.Request` with `Classification.Known = false` and calls `s.decisionSvc.Evaluate(ctx, fallbackReq)`. This durably records a `DENY` audit row in PostgreSQL with empty policy provenance before returning `PermissionDenied` (403 Forbidden) to the gateway.
+6. **Deployment Credential Hygiene (G4-Aligned Production Boundary):**  
+   *Why:* In response to Lead Architect review item 3, `deploy/g6/docker-compose.yml` replaces hardcoded secrets with environment variable interpolation (`${VAR:-default}`), adds a clear security warning banner, and documents in `deploy/g6/README.md` that G6 local integration fixtures are disposable dev defaults and production deployments must supply external secrets via dedicated orchestrator secret stores.
+7. **Audit-Before-ALLOW Invariant Preserved in In-Line Path:**  
    *Why:* Resolving O-002 in G5 established that no ALLOW may be returned unless durably persisted in PostgreSQL. In G6, `server.go` calls `AuditedDecisionService.Evaluate()`, ensuring that any database persistence failure automatically turns an ALLOW into a DENY before the gateway can proxy to the backend.
-4. **Tool Governance & Argument Whitelist Enforcement Pre-Evaluation:**  
+8. **Tool Governance & Argument Whitelist Enforcement Pre-Evaluation:**  
    *Why:* Resolving O-006 in G2 established that undeclared arguments or schema drift must not reach policy evaluation. The adapter validates tool name and arguments against `toolregistry` and `argdecl` before Cedar evaluation, preventing parameter tampering or injection attacks.
 
 ---

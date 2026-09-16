@@ -7,9 +7,11 @@ import (
 
 	"github.com/Dynamisch-LLC/agentgate/internal/audit"
 	"github.com/Dynamisch-LLC/agentgate/internal/decision"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type mockEvaluator struct {
@@ -21,6 +23,14 @@ type mockEvaluator struct {
 func (m *mockEvaluator) EvaluateWithActivePolicy(_ context.Context, _ string, req decision.Request) (decision.Result, error) {
 	if m.err != nil {
 		return decision.Result{}, m.err
+	}
+	if !req.Classification.Known {
+		return decision.Result{
+			Decision:      decision.Deny,
+			Reason:        decision.ReasonUnknownTool,
+			ExecutionID:   req.ExecutionID,
+			PolicyVersion: "",
+		}, nil
 	}
 	return decision.Result{
 		Decision:      m.decision,
@@ -41,17 +51,33 @@ func (f *failingAuditStore) GetLatestRecord(_ context.Context, _ string) (*audit
 	return nil, nil
 }
 
-func setupTestServer(t *testing.T, dec decision.Decision, reason decision.ReasonCode) *Server {
+func newTestJWTMetadata(t *testing.T, sub string, roles string) *corev3.Metadata {
+	t.Helper()
+	s, err := structpb.NewStruct(map[string]any{
+		"sub":   sub,
+		"roles": roles,
+	})
+	if err != nil {
+		t.Fatalf("structpb: %v", err)
+	}
+	return &corev3.Metadata{
+		FilterMetadata: map[string]*structpb.Struct{
+			"envoy.filters.http.jwt_authn": s,
+		},
+	}
+}
+
+func setupTestServer(t *testing.T, dec decision.Decision, reason decision.ReasonCode) (*Server, *audit.MemoryStore) {
 	t.Helper()
 	adapter := setupTestAdapter(t)
 	mockEval := &mockEvaluator{decision: dec, reason: reason}
 	memStore := audit.NewMemoryStore()
 	auditedSvc := audit.NewAuditedDecisionService(mockEval, memStore, audit.NewRedactor("", nil))
-	return NewServer(adapter, auditedSvc)
+	return NewServer(adapter, auditedSvc), memStore
 }
 
 func TestAuthzServer_Allow(t *testing.T) {
-	srv := setupTestServer(t, decision.Allow, decision.ReasonPolicyAllow)
+	srv, _ := setupTestServer(t, decision.Allow, decision.ReasonPolicyAllow)
 
 	req := &authv3.CheckRequest{
 		Attributes: &authv3.AttributeContext{
@@ -59,13 +85,10 @@ func TestAuthzServer_Allow(t *testing.T) {
 				Http: &authv3.AttributeContext_HttpRequest{
 					Method: "POST",
 					Path:   "/",
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "reader",
-					},
-					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true}}}`,
+					Body:   `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true}}}`,
 				},
 			},
+			MetadataContext: newTestJWTMetadata(t, "agent-001", "reader"),
 		},
 	}
 
@@ -92,7 +115,7 @@ func TestAuthzServer_Allow(t *testing.T) {
 }
 
 func TestAuthzServer_Deny(t *testing.T) {
-	srv := setupTestServer(t, decision.Deny, decision.ReasonPolicyDeny)
+	srv, _ := setupTestServer(t, decision.Deny, decision.ReasonPolicyDeny)
 
 	req := &authv3.CheckRequest{
 		Attributes: &authv3.AttributeContext{
@@ -100,13 +123,10 @@ func TestAuthzServer_Deny(t *testing.T) {
 				Http: &authv3.AttributeContext_HttpRequest{
 					Method: "POST",
 					Path:   "/",
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "reader",
-					},
-					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true}}}`,
+					Body:   `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true}}}`,
 				},
 			},
+			MetadataContext: newTestJWTMetadata(t, "agent-001", "reader"),
 		},
 	}
 
@@ -137,19 +157,16 @@ func TestAuthzServer_Deny(t *testing.T) {
 }
 
 func TestAuthzServer_UnknownTool(t *testing.T) {
-	srv := setupTestServer(t, decision.Allow, decision.ReasonPolicyAllow)
+	srv, _ := setupTestServer(t, decision.Allow, decision.ReasonPolicyAllow)
 
 	req := &authv3.CheckRequest{
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "reader",
-					},
 					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"unknown_tool"}}`,
 				},
 			},
+			MetadataContext: newTestJWTMetadata(t, "agent-001", "reader"),
 		},
 	}
 
@@ -166,7 +183,7 @@ func TestAuthzServer_UnknownTool(t *testing.T) {
 }
 
 func TestAuthzServer_MissingIdentity(t *testing.T) {
-	srv := setupTestServer(t, decision.Allow, decision.ReasonPolicyAllow)
+	srv, _ := setupTestServer(t, decision.Allow, decision.ReasonPolicyAllow)
 
 	req := &authv3.CheckRequest{
 		Attributes: &authv3.AttributeContext{
@@ -203,13 +220,10 @@ func TestAuthzServer_AuditFailureFailsClosed_O002(t *testing.T) {
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "reader",
-					},
 					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true}}}`,
 				},
 			},
+			MetadataContext: newTestJWTMetadata(t, "agent-001", "reader"),
 		},
 	}
 
@@ -226,19 +240,16 @@ func TestAuthzServer_AuditFailureFailsClosed_O002(t *testing.T) {
 }
 
 func TestAuthzServer_MalformedRequest(t *testing.T) {
-	srv := setupTestServer(t, decision.Allow, decision.ReasonPolicyAllow)
+	srv, _ := setupTestServer(t, decision.Allow, decision.ReasonPolicyAllow)
 
 	req := &authv3.CheckRequest{
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{
-						"x-agent-id": "agent-001",
-						"x-roles":    "reader",
-					},
 					Body: `{NOT VALID JSON`,
 				},
 			},
+			MetadataContext: newTestJWTMetadata(t, "agent-001", "reader"),
 		},
 	}
 
@@ -251,5 +262,39 @@ func TestAuthzServer_MalformedRequest(t *testing.T) {
 	}
 	if resp.GetDeniedResponse() == nil {
 		t.Fatal("expected DeniedResponse on malformed JSON, got nil")
+	}
+}
+
+// TestAuthzServer_AdapterError_Audited proves that pre-decision adaptation failures
+// (e.g. unknown tool or malformed request) durably record a DENY audit event.
+func TestAuthzServer_AdapterError_Audited(t *testing.T) {
+	srv, memStore := setupTestServer(t, decision.Allow, decision.ReasonPolicyAllow)
+
+	req := &authv3.CheckRequest{
+		Attributes: &authv3.AttributeContext{
+			Request: &authv3.AttributeContext_Request{
+				Http: &authv3.AttributeContext_HttpRequest{
+					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"unknown_tool"}}`,
+				},
+			},
+			MetadataContext: newTestJWTMetadata(t, "agent-001", "reader"),
+		},
+	}
+
+	resp, err := srv.Check(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected Check error: %v", err)
+	}
+	if resp.Status.Code != int32(codes.PermissionDenied) {
+		t.Errorf("expected PermissionDenied, got %d", resp.Status.Code)
+	}
+
+	// Verify that a durable DENY audit record was written to the store
+	latest, err := memStore.GetLatestRecord(context.Background(), "ws-test")
+	if err != nil || latest == nil {
+		t.Fatalf("expected durable audit record for adaptation failure, got record=%v, err=%v", latest, err)
+	}
+	if latest.Decision != "DENY" {
+		t.Errorf("expected audited decision DENY, got %q", latest.Decision)
 	}
 }

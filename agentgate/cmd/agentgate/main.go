@@ -173,11 +173,15 @@ func run() error {
 		},
 	})
 
+	// In G6 single-workspace integration deployment, AllowStaticWorkspace permits fallback to
+	// "default" when JWT does not declare a workspace_id claim. In multi-tenant environments,
+	// setting this to false enforces fail-closed rejection for requests lacking trusted workspace claims.
 	authzAdapter := authz.NewAdapter(authz.AdapterConfig{
-		DefaultWorkspaceID: "default",
-		DefaultBackendID:   "mcp-probe",
-		IdentityMapper:     identityMapper,
-		ToolRegistry:       toolReg,
+		DefaultWorkspaceID:   "default",
+		AllowStaticWorkspace: true,
+		DefaultBackendID:     "mcp-probe",
+		IdentityMapper:       identityMapper,
+		ToolRegistry:         toolReg,
 		ArgDeclarations: map[string]*argdecl.DeclarationSet{
 			"read_status":  readStatusDecls,
 			"write_status": writeStatusDecls,

@@ -19,8 +19,10 @@ import (
 	"github.com/Dynamisch-LLC/agentgate/internal/fixturepolicy"
 	"github.com/Dynamisch-LLC/agentgate/internal/identity"
 	"github.com/Dynamisch-LLC/agentgate/internal/toolregistry"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -163,10 +165,11 @@ func setupInProcessHarness(t *testing.T) *inProcessHarness {
 	})
 
 	adapter := authz.NewAdapter(authz.AdapterConfig{
-		DefaultWorkspaceID: "default",
-		DefaultBackendID:   "mcp-probe",
-		IdentityMapper:     mapper,
-		ToolRegistry:       toolReg,
+		DefaultWorkspaceID:   "default",
+		AllowStaticWorkspace: true,
+		DefaultBackendID:     "mcp-probe",
+		IdentityMapper:       mapper,
+		ToolRegistry:         toolReg,
 		ArgDeclarations: map[string]*argdecl.DeclarationSet{
 			"read_status": readDecls,
 		},
@@ -229,12 +232,21 @@ func TestScenario01_AuthenticatedAllowedKnownTool(t *testing.T) {
 	}
 
 	h := setupInProcessHarness(t)
+	jwtClaims, _ := structpb.NewStruct(map[string]any{
+		"sub":          "agent-reader",
+		"roles":        "reader",
+		"workspace_id": "default",
+	})
 	req := &authv3.CheckRequest{
 		Attributes: &authv3.AttributeContext{
 			Request: &authv3.AttributeContext_Request{
 				Http: &authv3.AttributeContext_HttpRequest{
-					Headers: map[string]string{"x-agent-id": "agent-reader", "x-roles": "reader"},
-					Body:    `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true}}}`,
+					Body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_status","arguments":{"verbose":true}}}`,
+				},
+			},
+			MetadataContext: &corev3.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"envoy.filters.http.jwt_authn": jwtClaims,
 				},
 			},
 		},
