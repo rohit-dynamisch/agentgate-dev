@@ -1,8 +1,8 @@
 # G6 Closure Summary — Real MCP End-to-End Enforcement
 
-**Checkpoint status:** SUBMITTED FOR REVIEW (Lead Architect Verdict Pending)  
+**Checkpoint status:** PASS / CLOSED / FROZEN (Lead Architect verdict recorded 2026-09-16)  
 **Date:** 2026-09-16  
-**Implementation Commits:** `cd37bb5`, `f3aa8ed`, `08989db`, `449aa2d`, `d4c6919`  
+**Implementation & Corrective Commits:** `cd37bb5`, `f3aa8ed`, `08989db`, `449aa2d`, `d4c6919`, `7d78d75`, `05ec347`, `b800982`  
 
 ---
 
@@ -12,7 +12,7 @@ AgentGate can now enforce Cedar authorization decisions in-line against real Mod
 
 Prior to G6, AgentGate's Cedar decision engine, tool registry, and PostgreSQL audit persistence operated behind test mocks or standalone unit harnesses without live proxy integration (tracked under architectural gap **O-008**). With G6, AgentGate exposes a production-grade Envoy v3 external authorization (`ext_authz`) gRPC service on `:9001` that unmarshals incoming JSON-RPC 2.0 `tools/call` payloads, checks registered tool schemas and typed argument whitelists, verifies JWT caller identity, and evaluates policy. 
 
-This end-to-end enforcement boundary is independently proven by a black-box test suite (`agentgate/qa/g6enforcement`) running against the live multi-container topology: across 12 mandatory DoD failure, denial, and outage scenarios, exactly **0** calls reached the MCP backend fixture, while a valid, authorized tool call produced exactly **1** backend call. Live outage testing proved the gateway fails closed (0 backend calls) when AgentGate is stopped, and recovers cleanly (1 backend call) upon restart. Furthermore, every decision was verified as durably written to PostgreSQL with unbroken SHA-256 cryptographic row chaining.
+This end-to-end enforcement boundary is independently proven by a black-box test suite (`agentgate/qa/g6enforcement`) running against the live multi-container topology: across 12 mandatory DoD failure, denial, and outage scenarios, exactly **0** calls reached the MCP backend fixture, while a valid, authorized tool call produced exactly **1** backend call. Live outage testing proved the gateway fails closed (0 backend calls) when AgentGate is stopped, and recovers cleanly (1 backend call) upon restart. Furthermore, every decision was verified as durably written to PostgreSQL with unbroken SHA-256 cryptographic row chaining. The unit test suite in `agentgate/internal/authz` validates the adapter and server with 20/20 tests passing (100%).
 
 ---
 
