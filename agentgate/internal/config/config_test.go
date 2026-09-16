@@ -18,6 +18,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.HTTPAddr != defaultHTTPAddr {
 		t.Errorf("HTTPAddr = %q, want %q", cfg.HTTPAddr, defaultHTTPAddr)
 	}
+	if cfg.AuthzGRPCAddr != defaultAuthzGRPCAddr {
+		t.Errorf("AuthzGRPCAddr = %q, want %q", cfg.AuthzGRPCAddr, defaultAuthzGRPCAddr)
+	}
 	if cfg.LogLevel != slog.LevelInfo {
 		t.Errorf("LogLevel = %v, want %v", cfg.LogLevel, slog.LevelInfo)
 	}
@@ -29,6 +32,7 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadOverrides(t *testing.T) {
 	t.Setenv(envPrefix+"ENV", "production")
 	t.Setenv(envPrefix+"HTTP_ADDR", ":9999")
+	t.Setenv(envPrefix+"AUTHZ_GRPC_ADDR", ":9005")
 	t.Setenv(envPrefix+"LOG_LEVEL", "debug")
 	t.Setenv(envPrefix+"SHUTDOWN_TIMEOUT", "2s")
 
@@ -42,6 +46,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if cfg.HTTPAddr != ":9999" {
 		t.Errorf("HTTPAddr = %q, want %q", cfg.HTTPAddr, ":9999")
+	}
+	if cfg.AuthzGRPCAddr != ":9005" {
+		t.Errorf("AuthzGRPCAddr = %q, want %q", cfg.AuthzGRPCAddr, ":9005")
 	}
 	if cfg.LogLevel != slog.LevelDebug {
 		t.Errorf("LogLevel = %v, want %v", cfg.LogLevel, slog.LevelDebug)
