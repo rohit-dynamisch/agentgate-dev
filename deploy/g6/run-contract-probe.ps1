@@ -81,17 +81,58 @@ try {
     Write-Host "Observed contract evidence saved to: $evidenceFile"
 
     if ($ValidateEvidence) {
-        Write-Host "Validating complete contract evidence..."
+        Write-Host "Validating complete contract evidence and fail-closed properties..."
         $firstRec = @($recordsJson)[0]
         $hasBody = $firstRec.body_present -eq $true -and $firstRec.raw_body -match "read_status"
         $notTruncated = $firstRec.body_length -gt 0 -and $firstRec.raw_body.Length -ge $firstRec.body_length
         $backendOk = $countJson.count -eq 1 -and @($countJson.invocations)[0].tool_name -eq "read_status"
+        $hasMethodPath = $firstRec.method -eq "POST" -and $firstRec.path -ne $null
 
         if (-not $hasBody) { throw "unsafe missing contract fact: body_complete" }
         if (-not $notTruncated) { throw "unsafe missing contract fact: not_truncated" }
         if (-not $backendOk) { throw "unsafe missing contract fact: route_provenance" }
+        if (-not $hasMethodPath) { throw "unsafe missing contract fact: identity_provenance" }
 
-        Write-Host "Evidence validation PASSED." -ForegroundColor Green
+        # --- Negative Scenario 1: Mode = DENY ---
+        Write-Host "Testing fail-closed invariant: DENY mode..."
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9002/mode?mode=deny" | Out-Null
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9002/reset" | Out-Null
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9101/_g6/reset" | Out-Null
+        $denyOut = & go run -C $clientDir . -url "http://localhost:3000" -tool "read_status" -skip-init 2>&1
+        $denyBackendCount = (Invoke-RestMethod -Uri "http://localhost:9101/_g6/count").count
+        if ($denyBackendCount -ne 0) {
+            throw "SECURITY DEFECT: DENY mode reached backend (backendCount: $denyBackendCount)"
+        }
+        Write-Host "PASS: DENY mode resulted in 0 backend invocations." -ForegroundColor Green
+
+        # --- Negative Scenario 2: Mode = MALFORMED ---
+        Write-Host "Testing fail-closed invariant: MALFORMED mode..."
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9002/mode?mode=malformed" | Out-Null
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9002/reset" | Out-Null
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9101/_g6/reset" | Out-Null
+        $malformedOut = & go run -C $clientDir . -url "http://localhost:3000" -tool "read_status" -skip-init 2>&1
+        $malformedBackendCount = (Invoke-RestMethod -Uri "http://localhost:9101/_g6/count").count
+        if ($malformedBackendCount -ne 0) {
+            throw "SECURITY DEFECT: MALFORMED mode reached backend (backendCount: $malformedBackendCount)"
+        }
+        Write-Host "PASS: MALFORMED mode resulted in 0 backend invocations." -ForegroundColor Green
+
+        # --- Negative Scenario 3: Mode = UNAVAILABLE ---
+        Write-Host "Testing fail-closed invariant: UNAVAILABLE mode..."
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9002/mode?mode=unavailable" | Out-Null
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9002/reset" | Out-Null
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9101/_g6/reset" | Out-Null
+        $unavailOut = & go run -C $clientDir . -url "http://localhost:3000" -tool "read_status" -skip-init 2>&1
+        $unavailBackendCount = (Invoke-RestMethod -Uri "http://localhost:9101/_g6/count").count
+        if ($unavailBackendCount -ne 0) {
+            throw "SECURITY DEFECT: UNAVAILABLE mode reached backend (backendCount: $unavailBackendCount)"
+        }
+        Write-Host "PASS: UNAVAILABLE mode resulted in 0 backend invocations." -ForegroundColor Green
+
+        # Reset probe to allow mode
+        Invoke-RestMethod -Method Post -Uri "http://localhost:9002/mode?mode=allow" | Out-Null
+
+        Write-Host "ALL EVIDENCE AND FAIL-CLOSED PROPERTIES VERIFIED SUCCESSFULLY." -ForegroundColor Green
     }
 }
 finally {

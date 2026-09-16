@@ -1,7 +1,7 @@
 # AgentGate — Open Decisions
 
-**Status:** Active — O-001, O-003, O-004, O-008 open; O-002, O-005, O-006, O-007 resolved
-**Date:** 2026-08-22
+**Status:** Active — O-001, O-003, O-004 open; O-002, O-005, O-006, O-007, O-008 resolved
+**Date:** 2026-08-22 (Updated 2026-09-16)
 
 This file contains unresolved questions that may affect architecture or implementation.
 
@@ -27,7 +27,7 @@ The project relies on agentgateway for MCP transport, routing, JWT validation, a
 
 The exact behaviors relied upon must be verified through integration/conformance tests rather than assumed from feature availability.
 
-**Current action:** Build targeted integration tests during the first end-to-end slice.
+**Current action:** Build targeted integration tests during the first end-to-end slice (Gate G6).
 
 ## O-004 — Supported MCP revision(s)
 
@@ -57,38 +57,18 @@ AgentGate should own an execution/correlation identifier for audit, future aggre
 
 **Current action:** Define as part of the request-context model.
 
-## O-008 — ext_authz transport mapping to the decision.Request contract
-
-**Priority:** High
-
-**Found:** G1 checkpoint, Gateway/MCP workstream (`g1/gateway-mcp`), confirmed against the real
-`agentgateway` binary once available (`gateway/README.md`, "Real-binary verification").
-
-agentgateway's documented `ext_authz` mechanisms — the HTTP protocol variant
-(`path`/`addRequestHeaders`/`includeResponseHeaders`/`redirect`, all CEL expressions operating on
-URL/headers only) and the gRPC variant (Envoy's generic `CheckRequest`/`CheckResponse`) — have no
-documented way to construct an arbitrary JSON request body. Neither natively produces the
-`decision.Request` shape (`execution_id`, `workspace_id`, `identity`, `tool`, `classification`,
-`arguments`) this project's frozen G1 contract defines. That JSON shape is an
-application/testing contract for the decision core, not necessarily agentgateway's native
-`ext_authz` wire protocol.
-
-The production mechanism by which the real `internal/authz` (not yet built, Day 3/8) receives an
-`ext_authz` callout and translates it into a `decision.Request` is undesigned. The most plausible
-approach — `internal/authz` parsing the raw included request body itself (via `internal/mcpreq`,
-per the repo-layout notes in `docs/PROJECT_DEFINITION.md §11`) rather than agentgateway's config
-DSL assembling AgentGate's bespoke JSON — is a hypothesis, not a decision.
-
-**Current action:** Design `internal/authz`'s ext_authz-to-`decision.Request` translation
-mechanism during the Day 3/8 gateway-integration task. Do not have Gateway/MCP or any other
-workstream invent a gateway-side adapter/shim to bridge this in the meantime — that would create a
-second, competing contract-mapping outside the component that should own it.
-
-**Allowed development approach:** Keep using the direct-HTTP mock/harness pattern already
-established (`agentgate/cmd/g1-mock-authz`, `gateway/harness`) for contract-level testing until
-`internal/authz` exists to close this gap for real.
-
 ## Resolved
+
+### O-008 — ext_authz transport mapping to decision.Request contract (resolved 2026-09-16, G6 Phase 1)
+
+**Priority was:** High
+
+**Resolution:** Verified empirically against pinned `agentgateway:v1.4.0` (`sha256:771afaf093065477fa296eb90dcb618a0300165f12a32f80bbdd1427fab900ec`).
+1. agentgateway uses Envoy v3 gRPC `envoy.service.auth.v3.Authorization/Check` callout configured via `policies.extAuthz.protocol.grpc: {}`.
+2. Raw MCP JSON-RPC 2.0 tool call body (`tools/call`, tool name, arguments) is delivered in `CheckRequest.Attributes.Request.Http.Body` and `RawBody` when `includeRequestBody: { maxRequestBytes: 1048576, allowPartialMessage: false, packAsBytes: false }` is enabled.
+3. Authenticated JWT identity is delivered in `CheckRequest.Attributes.MetadataContext.FilterMetadata["envoy.filters.http.jwt_authn"]`.
+4. Fail-closed behavior is verified empirically: `DENY` -> 0 backend calls, `MALFORMED` -> 0 backend calls, `UNAVAILABLE` -> 0 backend calls.
+5. The production `internal/authz` adapter unmarshals the JSON-RPC body, verifies tool governance against `toolregistry` and `argdecl`, and calls `audit.AuditedDecisionService.Evaluate()`. See `docs/PHASES/G6_WORKSTREAMS/G6_GATEWAY_CONTRACT.md`.
 
 ### O-002 — Audit durability invariant (resolved 2026-09-14, G5 checkpoint)
 
