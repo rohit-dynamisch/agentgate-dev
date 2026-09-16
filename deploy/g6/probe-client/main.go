@@ -20,15 +20,20 @@ type ToolResult struct {
 
 // Client is a minimal MCP client for contract probes.
 type Client struct {
-	BaseURL    string
-	Token      string
-	HTTPClient *http.Client
+	BaseURL      string
+	Token        string
+	AgentID      string
+	Roles        string
+	OnBehalfOf   string
+	ExtraHeaders map[string]string
+	HTTPClient   *http.Client
 }
 
 func NewClient(baseURL, token string) *Client {
 	return &Client{
-		BaseURL: baseURL,
-		Token:   token,
+		BaseURL:      baseURL,
+		Token:        token,
+		ExtraHeaders: make(map[string]string),
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -62,6 +67,18 @@ func (c *Client) sendRaw(body []byte) (int, []byte, error) {
 	req.Header.Set("Content-Type", "application/json")
 	if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	if c.AgentID != "" {
+		req.Header.Set("x-agent-id", c.AgentID)
+	}
+	if c.Roles != "" {
+		req.Header.Set("x-roles", c.Roles)
+	}
+	if c.OnBehalfOf != "" {
+		req.Header.Set("x-on-behalf-of", c.OnBehalfOf)
+	}
+	for k, v := range c.ExtraHeaders {
+		req.Header.Set(k, v)
 	}
 
 	resp, err := c.HTTPClient.Do(req)
@@ -157,6 +174,9 @@ func (c *Client) CallTool(name string, args map[string]any) (*ToolResult, error)
 func main() {
 	urlFlag := flag.String("url", "http://localhost:3000", "Base MCP URL")
 	tokenFlag := flag.String("token", "", "Bearer token")
+	agentIDFlag := flag.String("agent-id", "agent-reader", "Caller Agent ID")
+	rolesFlag := flag.String("roles", "reader", "Caller Roles")
+	oboFlag := flag.String("obo", "", "On-behalf-of human identity")
 	toolFlag := flag.String("tool", "read_status", "Tool to invoke")
 	argsFlag := flag.String("args", "{}", "Tool arguments JSON")
 	rawFlag := flag.String("raw", "", "Raw JSON payload to send directly")
@@ -164,6 +184,9 @@ func main() {
 	flag.Parse()
 
 	client := NewClient(*urlFlag, *tokenFlag)
+	client.AgentID = *agentIDFlag
+	client.Roles = *rolesFlag
+	client.OnBehalfOf = *oboFlag
 
 	if *rawFlag != "" {
 		code, resp, err := client.sendRaw([]byte(*rawFlag))

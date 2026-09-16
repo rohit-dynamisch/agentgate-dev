@@ -1,7 +1,7 @@
 # Deploy Topology: Gate G6 Real MCP Enforcement Gate
 
 This directory defines the reproducible integration environment for Gate G6:
-`Real MCP Client -> agentgateway -> AgentGate / Probe -> Real MCP Backend`.
+`Real MCP Client -> agentgateway -> AgentGate -> Real MCP Backend`.
 
 ## Pinned Artifacts
 
@@ -12,16 +12,18 @@ This directory defines the reproducible integration environment for Gate G6:
 ## Architecture Topology (`agentgate-g6`)
 
 ```text
-[probe-client] (MCP 2026-07-28 client)
+[Real MCP Client / QA Probe] (MCP 2026-07-28 client)
        │
        ▼ (HTTP POST :3000)
 [g6-agentgateway] (v1.4.0, fail-closed)
        │
-       ├─► [g6-probe-authz] (Envoy v3 gRPC Check on :9001)
-       │   └── Mode: allow / deny / malformed / unavailable
+       ├─► [g6-agentgate] (Envoy v3 gRPC ext_authz on :9001, Gov HTTP on :8090)
+       │   ├── Identity Mapping & Tool Governance
+       │   ├── Cedar Policy Engine Evaluation
+       │   └── Durable Tamper-Evident PostgreSQL Audit Chain
        │
-       ▼ (Routed only if ext_authz returns OK)
-[g6-probe-mcp] (MCP Backend on :9100)
+       ▼ (Routed only if AgentGate authorization returns OK)
+[g6-probe-mcp] (Governed MCP Backend on :9100)
        └── Atomic invocation counter on :9101 (/_g6/count)
 ```
 
@@ -37,7 +39,12 @@ powershell -ExecutionPolicy Bypass -File deploy/g6/verify-image.ps1
 docker run --rm -v "${PWD}/deploy/g6/agentgateway.yaml:/config.yaml:ro" cr.agentgateway.dev/agentgateway:v1.4.0 --validate-only -f /config.yaml
 ```
 
-### 3. Run Contract Probe & Evidence Validation
+### 3. Run Phase 1 Contract Probe & Evidence Validation
 ```powershell
-powershell -ExecutionPolicy Bypass -File deploy/g6/run-contract-probe.ps1
+powershell -ExecutionPolicy Bypass -File deploy/g6/run-contract-probe.ps1 -ValidateEvidence
+```
+
+### 4. Run Phase 2 Integrated E2E Enforcement Matrix
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy/g6/run-e2e-matrix.ps1
 ```

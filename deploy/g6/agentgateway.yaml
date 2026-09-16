@@ -8,7 +8,7 @@ gateways:
 routes:
   - policies:
       extAuthz:
-        host: probe-authz:9001
+        host: agentgate:9001
         policies:
           http:
             requestTimeout: 5s

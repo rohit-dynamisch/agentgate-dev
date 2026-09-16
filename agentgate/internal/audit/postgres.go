@@ -135,8 +135,8 @@ func (s *PostgresStore) AppendDecision(ctx context.Context, record DecisionRecor
 			prev_hash,
 			row_hash
 		) VALUES (
-			$1,
-			COALESCE((SELECT MAX(sequence_number) FROM audit_events WHERE workspace_id = $1), 0) + 1,
+			$1::text,
+			COALESCE((SELECT MAX(sequence_number) FROM audit_events WHERE workspace_id = $1::text), 0) + 1,
 			$2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
 		)
 		RETURNING id, sequence_number, timestamp

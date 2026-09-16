@@ -1,6 +1,6 @@
 module github.com/Dynamisch-LLC/agentgate
 
-go 1.26
+go 1.25.0
 
 require (
 	github.com/cedar-policy/cedar-go v1.8.0
