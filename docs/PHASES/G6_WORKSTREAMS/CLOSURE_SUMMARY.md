@@ -1,8 +1,8 @@
 # G6 Closure Summary — Real MCP End-to-End Enforcement
 
-**Checkpoint status:** PASS / CLOSED / FROZEN  
+**Checkpoint status:** SUBMITTED FOR REVIEW (Lead Architect Verdict Pending)  
 **Date:** 2026-09-16  
-**Implementation Commits:** `cd37bb5`, `f3aa8ed`, `08989db`, `449aa2d`  
+**Implementation Commits:** `cd37bb5`, `f3aa8ed`, `08989db`, `449aa2d`, `d4c6919`  
 
 ---
 
