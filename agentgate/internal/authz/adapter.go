@@ -166,7 +166,15 @@ func (a *Adapter) Adapt(ctx context.Context, checkReq *authv3.CheckRequest) (dec
 		}
 	}
 
-	govRecord := a.cfg.ToolRegistry.Lookup(toolID, "")
+	liveFP := toolregistry.SchemaFingerprint(getHeader(headers, "x-tool-fingerprint"))
+	if liveFP == "" {
+		liveFP = toolregistry.SchemaFingerprint(getHeader(headers, "x-agentgate-tool-fingerprint"))
+	}
+	if liveFP == "" && checkReq.Attributes.ContextExtensions != nil {
+		liveFP = toolregistry.SchemaFingerprint(checkReq.Attributes.ContextExtensions["tool_fingerprint"])
+	}
+
+	govRecord := a.cfg.ToolRegistry.Lookup(toolID, liveFP)
 	if !govRecord.Known {
 		return decision.Request{}, &AdapterError{
 			ReasonCode: decision.ReasonUnknownTool,
