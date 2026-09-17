@@ -1,0 +1,55 @@
+﻿{
+    "backend_evidence":  {
+                             "count":  1,
+                             "invocations":  [
+                                                 {
+                                                     "timestamp":  "2026-09-16T04:54:11.169237545Z",
+                                                     "tool_name":  "read_status",
+                                                     "arguments":  {
+                                                                       "verbose":  true
+                                                                   },
+                                                     "headers":  {
+                                                                     "Accept-Encoding":  "gzip",
+                                                                     "Content-Length":  "107",
+                                                                     "Content-Type":  "application/json",
+                                                                     "User-Agent":  "Go-http-client/1.1",
+                                                                     "X-Agentgate-Probe":  "allowed"
+                                                                 },
+                                                     "raw_request":  "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"arguments\":{\"verbose\":true},\"name\":\"read_status\"}}"
+                                                 }
+                                             ]
+                         },
+    "client_output":  "Tool Call Succeeded: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"text\":\"OK: status operational\",\"type\":\"text\"}]}} ",
+    "timestamp":  "2026-09-16T04:54:33.4455366Z",
+    "probe_records":  {
+                          "value":  [
+                                        {
+                                            "timestamp":  "2026-09-16T04:54:11.164391284Z",
+                                            "method":  "POST",
+                                            "path":  "/",
+                                            "headers":  {
+                                                            ":authority":  "localhost:3000",
+                                                            ":method":  "POST",
+                                                            ":path":  "/",
+                                                            ":scheme":  "http",
+                                                            "accept-encoding":  "gzip",
+                                                            "content-length":  "107",
+                                                            "content-type":  "application/json",
+                                                            "user-agent":  "Go-http-client/1.1"
+                                                        },
+                                            "body_present":  true,
+                                            "body_length":  107,
+                                            "raw_body":  "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"arguments\":{\"verbose\":true},\"name\":\"read_status\"}}",
+                                            "metadata":  {
+
+                                                         },
+                                            "context_extensions":  {
+
+                                                                   },
+                                            "mode_at_check":  "allow",
+                                            "outcome_status":  0
+                                        }
+                                    ],
+                          "Count":  1
+                      }
+}

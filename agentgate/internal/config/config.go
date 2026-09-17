@@ -22,6 +22,7 @@ const envPrefix = "AGENTGATE_"
 const (
 	defaultEnvironment     = "development"
 	defaultHTTPAddr        = ":8090"
+	defaultAuthzGRPCAddr   = ":9001"
 	defaultLogLevel        = "info"
 	defaultShutdownTimeout = 10 * time.Second
 	defaultAdminToken      = "agentgate-admin-secret-dev"
@@ -38,6 +39,9 @@ type Config struct {
 	// Per docs/PROJECT_DEFINITION.md §2 this is the :8090 HTTP UI + API
 	// port; today it only serves health/readiness.
 	HTTPAddr string
+
+	// AuthzGRPCAddr is the listen address for AgentGate's Envoy v3 ext_authz gRPC service.
+	AuthzGRPCAddr string
 
 	// LogLevel controls the minimum severity written by the structured
 	// logger (see internal/logging).
@@ -64,6 +68,20 @@ func Load() (Config, error) {
 
 	cfg.Environment = getEnv(envPrefix+"ENV", defaultEnvironment)
 	cfg.HTTPAddr = getEnv(envPrefix+"HTTP_ADDR", defaultHTTPAddr)
+
+	grpcAddr := getEnv(envPrefix+"AUTHZ_GRPC_ADDR", "")
+	if grpcAddr == "" {
+		if port := getEnv(envPrefix+"AUTHZ_GRPC_PORT", ""); port != "" {
+			if strings.HasPrefix(port, ":") {
+				grpcAddr = port
+			} else {
+				grpcAddr = ":" + port
+			}
+		} else {
+			grpcAddr = defaultAuthzGRPCAddr
+		}
+	}
+	cfg.AuthzGRPCAddr = grpcAddr
 
 	level, err := parseLogLevel(getEnv(envPrefix+"LOG_LEVEL", defaultLogLevel))
 	if err != nil {
@@ -93,6 +111,9 @@ func Load() (Config, error) {
 func (c Config) Validate() error {
 	if strings.TrimSpace(c.HTTPAddr) == "" {
 		return fmt.Errorf("config: %sHTTP_ADDR must not be empty", envPrefix)
+	}
+	if strings.TrimSpace(c.AuthzGRPCAddr) == "" {
+		return fmt.Errorf("config: %sAUTHZ_GRPC_ADDR must not be empty", envPrefix)
 	}
 	if c.ShutdownTimeout <= 0 {
 		return fmt.Errorf("config: %sSHUTDOWN_TIMEOUT must be positive, got %s", envPrefix, c.ShutdownTimeout)
